@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -108,14 +109,14 @@ class MediaToolchain:
 
     @classmethod
     def discover(cls) -> MediaToolchain:
-        ffmpeg = shutil.which("ffmpeg")
-        ffprobe = shutil.which("ffprobe")
+        ffmpeg = _discover_tool("SIMPLECONVBOT_FFMPEG_PATH", "ffmpeg")
+        ffprobe = _discover_tool("SIMPLECONVBOT_FFPROBE_PATH", "ffprobe")
         if ffmpeg is None or ffprobe is None:
             raise MediaEngineError(
                 MediaErrorCode.TOOLCHAIN_UNAVAILABLE,
                 "ffmpeg and ffprobe are required",
             )
-        return cls(ffmpeg=Path(ffmpeg).resolve(), ffprobe=Path(ffprobe).resolve())
+        return cls(ffmpeg=ffmpeg, ffprobe=ffprobe)
 
 
 @dataclass(frozen=True, slots=True)
@@ -713,3 +714,21 @@ def _required_positive_int(value: object) -> int:
             "video dimensions are missing or invalid",
         )
     return parsed
+
+
+def _discover_tool(env_name: str, executable: str) -> Path | None:
+    configured = os.environ.get(env_name)
+    if configured:
+        candidate = Path(configured).expanduser()
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate.resolve()
+        return None
+
+    discovered = shutil.which(executable)
+    if discovered:
+        return Path(discovered).resolve()
+
+    for candidate in (Path("/usr/bin") / executable, Path("/usr/local/bin") / executable):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate.resolve()
+    return None
