@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import BigInteger, DateTime, Integer, String, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -77,16 +77,14 @@ class PostgresUpdateReceiptStore:
 
     async def claim(self, update_id: int) -> bool:
         async with self._sessions() as session:
-            session.add(TelegramUpdateRow(update_id=update_id))
-            try:
-                await session.commit()
-            except IntegrityError:
-                await session.rollback()
-                existing = await session.get(TelegramUpdateRow, update_id)
-                if existing is None:
-                    raise
-                return False
-            return True
+            claimed_id = await session.scalar(
+                insert(TelegramUpdateRow)
+                .values(update_id=update_id)
+                .on_conflict_do_nothing(index_elements=[TelegramUpdateRow.update_id])
+                .returning(TelegramUpdateRow.update_id)
+            )
+            await session.commit()
+            return claimed_id is not None
 
 
 class PostgresJobRepository:
@@ -95,30 +93,36 @@ class PostgresJobRepository:
 
     async def create_or_get(self, command: CreateJob) -> tuple[JobSnapshot, bool]:
         async with self._sessions() as session:
-            row = JobRow(
-                job_id=uuid4(),
-                idempotency_key=command.idempotency_key,
-                operation_id=command.operation_id,
-                operation_version=command.operation_version,
-                user_id=command.user_id,
-                chat_id=command.chat_id,
-                source_message_id=command.source_message_id,
-                state=JobState.RECEIVED.value,
-            )
-            session.add(row)
-            try:
-                await session.commit()
-            except IntegrityError:
-                await session.rollback()
-                existing = await session.scalar(
-                    select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
+            new_job_id = uuid4()
+            created_id = await session.scalar(
+                insert(JobRow)
+                .values(
+                    job_id=new_job_id,
+                    idempotency_key=command.idempotency_key,
+                    operation_id=command.operation_id,
+                    operation_version=command.operation_version,
+                    user_id=command.user_id,
+                    chat_id=command.chat_id,
+                    source_message_id=command.source_message_id,
+                    state=JobState.RECEIVED.value,
                 )
-                if existing is None:
-                    raise
-                return _snapshot(existing), False
+                .on_conflict_do_nothing(index_elements=[JobRow.idempotency_key])
+                .returning(JobRow.job_id)
+            )
+            await session.commit()
 
-            await session.refresh(row)
-            return _snapshot(row), True
+            if created_id is not None:
+                created = await session.get(JobRow, created_id)
+                if created is None:
+                    raise JobNotFound(str(created_id))
+                return _snapshot(created), True
+
+            existing = await session.scalar(
+                select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
+            )
+            if existing is None:
+                raise JobNotFound(command.idempotency_key)
+            return _snapshot(existing), False
 
     async def get(self, job_id: UUID) -> JobSnapshot:
         async with self._sessions() as session:
