@@ -61,6 +61,24 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
 
+      - name: Install media toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Verify media toolchain
+        run: |
+          FFMPEG_PATH="$(command -v ffmpeg)"
+          FFPROBE_PATH="$(command -v ffprobe)"
+          test -n "$FFMPEG_PATH"
+          test -n "$FFPROBE_PATH"
+          "$FFMPEG_PATH" -version > /tmp/ffmpeg-version.txt
+          "$FFPROBE_PATH" -version > /tmp/ffprobe-version.txt
+          head -n 1 /tmp/ffmpeg-version.txt
+          head -n 1 /tmp/ffprobe-version.txt
+          echo "SIMPLECONVBOT_FFMPEG_PATH=$FFMPEG_PATH" >> "$GITHUB_ENV"
+          echo "SIMPLECONVBOT_FFPROBE_PATH=$FFPROBE_PATH" >> "$GITHUB_ENV"
+
       - name: Verify
         run: python scripts/verify.py
 
@@ -72,3 +90,8 @@ jobs:
 
       - name: Smoke production image
         run: docker run --rm simpleconvbot:ci python -m simpleconvbot --version
+
+      - name: Smoke production media toolchain
+        run: |
+          docker run --rm simpleconvbot:ci ffmpeg -version
+          docker run --rm simpleconvbot:ci ffprobe -version
