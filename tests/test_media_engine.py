@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import shutil
 import struct
 import subprocess
 import sys
@@ -23,9 +22,12 @@ from simpleconvbot.media_engine import (
 
 
 def _tool(name: str) -> str:
-    value = shutil.which(name)
-    assert value is not None, f"{name} must be installed for MEDIA-001 tests"
-    return value
+    toolchain = MediaToolchain.discover()
+    if name == "ffmpeg":
+        return str(toolchain.ffmpeg)
+    if name == "ffprobe":
+        return str(toolchain.ffprobe)
+    raise AssertionError(f"unknown media test tool: {name}")
 
 
 def _make_wav(path: Path, duration: float = 0.25, frequency: float = 440.0) -> None:
