@@ -223,6 +223,7 @@ class MediaEngine:
         source_info = self.inspect(source)
         self._require_audio(source_info)
 
+        media_args: tuple[str, ...]
         if target is AudioOutputFormat.MP3:
             media_args = ("-vn", "-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3")
             expected_container = "mp3"
@@ -685,7 +686,9 @@ def _partial_path(destination: Path) -> Path:
 
 
 def _optional_float(value: object) -> float | None:
-    if value is None or value == "N/A":
+    if value is None or value == "N/A" or isinstance(value, bool):
+        return None
+    if not isinstance(value, (str, int, float)):
         return None
     parsed = float(value)
     if not math.isfinite(parsed) or parsed < 0:
@@ -694,7 +697,9 @@ def _optional_float(value: object) -> float | None:
 
 
 def _optional_int(value: object) -> int | None:
-    if value is None or value == "N/A":
+    if value is None or value == "N/A" or isinstance(value, bool):
+        return None
+    if not isinstance(value, (str, int)):
         return None
     parsed = int(value)
     return parsed if parsed >= 0 else None
