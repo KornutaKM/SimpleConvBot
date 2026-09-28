@@ -52,7 +52,9 @@ class TelemetryEvent:
             _validate_safe_id("operation_id", self.operation_id)
         if self.error_code is not None:
             _validate_safe_id("error_code", self.error_code)
-        if self.correlation_id is not None and not re.fullmatch(r"[0-9a-f]{16}", self.correlation_id):
+        if self.correlation_id is not None and not re.fullmatch(
+            r"[0-9a-f]{16}", self.correlation_id
+        ):
             raise ValueError("correlation_id must be a 16-character hex token")
         if self.duration_ms is not None:
             if not math.isfinite(self.duration_ms) or self.duration_ms < 0:
