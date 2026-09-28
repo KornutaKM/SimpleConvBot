@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+from contextlib import suppress
 from asyncio import to_thread
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -100,13 +101,10 @@ class LocalTemporaryStorage:
                 StorageErrorCode.ROOT_SYMLINK,
                 "temporary storage root identity changed",
             )
-        try:
+        # Some mounted filesystems may not support chmod. The identity checks
+        # above still apply; deployment permissions are verified independently.
+        with suppress(OSError):
             resolved.chmod(0o700)
-        except OSError:
-            # Some mounted filesystems may not support chmod. The identity
-            # checks above still apply; deployment permissions are verified
-            # independently by the container security self-test.
-            pass
         return resolved
 
     def _workspace_path(self, job_id: UUID) -> Path:
@@ -125,10 +123,8 @@ class LocalTemporaryStorage:
                 StorageErrorCode.WORKSPACE_TAMPERED,
                 "job workspace is not a real directory",
             )
-        try:
+        with suppress(OSError):
             path.chmod(0o700)
-        except OSError:
-            pass
         return path
 
     def _workspace_file_sync(self, job_id: UUID, internal_name: str) -> Path:

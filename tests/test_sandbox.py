@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from simpleconvbot.sandbox import SandboxError, SandboxErrorCode, SandboxLimits, SandboxRunner
+from simpleconvbot.sandbox import (
+    SandboxError,
+    SandboxErrorCode,
+    SandboxLimits,
+    SandboxRunner,
+)
 
 
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux resource sandbox only")
