@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import (\n    BigInteger,\n    DateTime,\n    ForeignKey,\n    Integer,\n    String,\n    UniqueConstraint,\n    delete,\n    func,\n    select,\n    update,\n)
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    delete,
+    func,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
