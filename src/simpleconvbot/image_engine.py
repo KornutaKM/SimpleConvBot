@@ -327,9 +327,7 @@ def _parse_input_format(raw: str | None) -> ImageFormat:
 
 
 def _has_alpha(image: Image.Image) -> bool:
-    return image.mode in {"RGBA", "LA"} or (
-        image.mode == "P" and "transparency" in image.info
-    )
+    return image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info)
 
 
 def _info(source: Path, image: Image.Image) -> ImageInfo:
