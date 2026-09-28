@@ -15,11 +15,7 @@ WELCOME_TEXT = (
     "я сам определю формат и покажу доступные действия."
 )
 
-TOOLS_TEXT = (
-    "🧰 <b>Все инструменты</b>\n\n"
-    "Выберите категорию\n"
-    "или просто отправьте файл."
-)
+TOOLS_TEXT = "🧰 <b>Все инструменты</b>\n\nВыберите категорию\nили просто отправьте файл."
 
 SETTINGS_TEXT = "⚙️ <b>Настройки</b>\n\nПока здесь только параметры UI-прототипа."
 
@@ -159,21 +155,15 @@ def pdf_actions_keyboard() -> InlineKeyboardMarkup:
 
 
 def category_back_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[_button("← Все инструменты", TOOLS_CALLBACK)]]
-    )
+    return InlineKeyboardMarkup(inline_keyboard=[[_button("← Все инструменты", TOOLS_CALLBACK)]])
 
 
 def image_back_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[_button("← К изображениям", "ui:cat:image")]]
-    )
+    return InlineKeyboardMarkup(inline_keyboard=[[_button("← К изображениям", "ui:cat:image")]])
 
 
 def pdf_back_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[_button("← К документам", "ui:cat:document")]]
-    )
+    return InlineKeyboardMarkup(inline_keyboard=[[_button("← К документам", "ui:cat:document")]])
 
 
 def format_file_size(size: int | None) -> str:
@@ -188,29 +178,19 @@ def format_file_size(size: int | None) -> str:
 
 def photo_card(width: int, height: int, size: int | None) -> str:
     return (
-        "🖼 <b>Изображение</b>\n"
-        f"{width}×{height} • {format_file_size(size)}\n\n"
-        "<b>Что сделать?</b>"
+        f"🖼 <b>Изображение</b>\n{width}×{height} • {format_file_size(size)}\n\n<b>Что сделать?</b>"
     )
 
 
 def image_document_card(filename: str | None, mime_type: str | None, size: int | None) -> str:
     safe_name = escape(filename or "Изображение")
     safe_mime = escape(mime_type or "image")
-    return (
-        f"🖼 <b>{safe_name}</b>\n"
-        f"{safe_mime} • {format_file_size(size)}\n\n"
-        "<b>Что сделать?</b>"
-    )
+    return f"🖼 <b>{safe_name}</b>\n{safe_mime} • {format_file_size(size)}\n\n<b>Что сделать?</b>"
 
 
 def pdf_card(filename: str | None, size: int | None) -> str:
     safe_name = escape(filename or "document.pdf")
-    return (
-        f"📄 <b>{safe_name}</b>\n"
-        f"PDF • {format_file_size(size)}\n\n"
-        "<b>Что сделать?</b>"
-    )
+    return f"📄 <b>{safe_name}</b>\nPDF • {format_file_size(size)}\n\n<b>Что сделать?</b>"
 
 
 def unsupported_document_card(
