@@ -72,8 +72,10 @@ jobs:
           FFPROBE_PATH="$(command -v ffprobe)"
           test -n "$FFMPEG_PATH"
           test -n "$FFPROBE_PATH"
-          "$FFMPEG_PATH" -version | head -n 1
-          "$FFPROBE_PATH" -version | head -n 1
+          "$FFMPEG_PATH" -version > /tmp/ffmpeg-version.txt
+          "$FFPROBE_PATH" -version > /tmp/ffprobe-version.txt
+          head -n 1 /tmp/ffmpeg-version.txt
+          head -n 1 /tmp/ffprobe-version.txt
           echo "SIMPLECONVBOT_FFMPEG_PATH=$FFMPEG_PATH" >> "$GITHUB_ENV"
           echo "SIMPLECONVBOT_FFPROBE_PATH=$FFPROBE_PATH" >> "$GITHUB_ENV"
 
