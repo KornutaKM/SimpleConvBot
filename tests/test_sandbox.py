@@ -12,7 +12,6 @@ from simpleconvbot.sandbox import (
     SandboxRunner,
 )
 
-
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux resource sandbox only")
 
 

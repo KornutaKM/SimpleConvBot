@@ -82,6 +82,9 @@ jobs:
       - name: Verify
         run: python scripts/verify.py
 
+      - name: Audit Python dependencies
+        run: python -m pip_audit --strict
+
       - name: Integration
         run: python scripts/verify_integration.py
 
