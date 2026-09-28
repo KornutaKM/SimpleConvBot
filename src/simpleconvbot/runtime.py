@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiogram import Bot
+from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
 from simpleconvbot.config import Settings, SettingsError
@@ -32,6 +33,13 @@ async def run_polling(settings: Settings | None = None) -> None:
     try:
         await create_schema(engine)
         await redis_client.ping()
+        await bot.set_my_commands(
+            [
+                BotCommand(command="start", description="Главный экран"),
+                BotCommand(command="tools", description="Все инструменты"),
+                BotCommand(command="settings", description="Настройки"),
+            ]
+        )
         await dispatcher.start_polling(bot)
     finally:
         await bot.session.close()
