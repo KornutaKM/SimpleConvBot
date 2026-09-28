@@ -186,62 +186,62 @@ class PostgresJobRepository:
 
     async def create_or_get(self, command: CreateJob) -> tuple[JobSnapshot, bool]:
         async with self._sessions() as session, session.begin():
-                existing = await session.scalar(
-                    select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
-                )
-                if existing is not None:
-                    return _snapshot(existing), False
+            existing = await session.scalar(
+                select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
+            )
+            if existing is not None:
+                return _snapshot(existing), False
 
-                await session.execute(select(func.pg_advisory_xact_lock(_GLOBAL_JOB_LOCK)))
-                await session.execute(
-                    select(func.pg_advisory_xact_lock(_user_job_lock(command.user_id)))
-                )
+            await session.execute(select(func.pg_advisory_xact_lock(_GLOBAL_JOB_LOCK)))
+            await session.execute(
+                select(func.pg_advisory_xact_lock(_user_job_lock(command.user_id)))
+            )
 
-                existing = await session.scalar(
-                    select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
-                )
-                if existing is not None:
-                    return _snapshot(existing), False
+            existing = await session.scalar(
+                select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
+            )
+            if existing is not None:
+                return _snapshot(existing), False
 
-                active_values = tuple(state.value for state in ACTIVE_STATES)
-                global_active = int(
-                    await session.scalar(
-                        select(func.count())
-                        .select_from(JobRow)
-                        .where(JobRow.state.in_(active_values))
+            active_values = tuple(state.value for state in ACTIVE_STATES)
+            global_active = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(JobRow)
+                    .where(JobRow.state.in_(active_values))
+                )
+                or 0
+            )
+            if global_active >= self._admission_policy.max_active_global:
+                raise JobAdmissionRejected(JobAdmissionCode.GLOBAL_CONCURRENCY)
+
+            user_active = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(JobRow)
+                    .where(
+                        JobRow.user_id == command.user_id,
+                        JobRow.state.in_(active_values),
                     )
-                    or 0
                 )
-                if global_active >= self._admission_policy.max_active_global:
-                    raise JobAdmissionRejected(JobAdmissionCode.GLOBAL_CONCURRENCY)
+                or 0
+            )
+            if user_active >= self._admission_policy.max_active_per_user:
+                raise JobAdmissionRejected(JobAdmissionCode.USER_CONCURRENCY)
 
-                user_active = int(
-                    await session.scalar(
-                        select(func.count())
-                        .select_from(JobRow)
-                        .where(
-                            JobRow.user_id == command.user_id,
-                            JobRow.state.in_(active_values),
-                        )
-                    )
-                    or 0
-                )
-                if user_active >= self._admission_policy.max_active_per_user:
-                    raise JobAdmissionRejected(JobAdmissionCode.USER_CONCURRENCY)
-
-                row = JobRow(
-                    job_id=uuid4(),
-                    idempotency_key=command.idempotency_key,
-                    operation_id=command.operation_id,
-                    operation_version=command.operation_version,
-                    user_id=command.user_id,
-                    chat_id=command.chat_id,
-                    source_message_id=command.source_message_id,
-                    state=JobState.RECEIVED.value,
-                )
-                session.add(row)
-                await session.flush()
-                return _snapshot(row), True
+            row = JobRow(
+                job_id=uuid4(),
+                idempotency_key=command.idempotency_key,
+                operation_id=command.operation_id,
+                operation_version=command.operation_version,
+                user_id=command.user_id,
+                chat_id=command.chat_id,
+                source_message_id=command.source_message_id,
+                state=JobState.RECEIVED.value,
+            )
+            session.add(row)
+            await session.flush()
+            return _snapshot(row), True
 
     async def get(self, job_id: UUID) -> JobSnapshot:
         async with self._sessions() as session:
