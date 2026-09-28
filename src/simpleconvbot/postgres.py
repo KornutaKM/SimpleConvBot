@@ -185,7 +185,10 @@ class PostgresJobRepository:
         self._admission_policy = admission_policy or JobAdmissionPolicy()
 
     async def create_or_get(self, command: CreateJob) -> tuple[JobSnapshot, bool]:
-        async with self._sessions() as session, session.begin():
+        async with (
+            self._sessions() as session,
+            session.begin(),
+        ):
             existing = await session.scalar(
                 select(JobRow).where(JobRow.idempotency_key == command.idempotency_key)
             )
