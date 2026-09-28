@@ -43,6 +43,18 @@ class CountingExecutor:
         return ExecutionResult(output_ref=str(output))
 
 
+class FailingExecutor:
+    async def execute(
+        self,
+        job: object,
+        operation: object,
+        workspace: Path,
+    ) -> ExecutionResult:
+        del job, operation
+        (workspace / "partial.bin").write_bytes(b"partial")
+        raise RuntimeError("synthetic conversion failure")
+
+
 class RecordingDelivery:
     def __init__(self) -> None:
         self.outputs: list[str] = []
@@ -119,6 +131,58 @@ async def _duplicate_update_and_callback_execute_once() -> None:
 
 
 @pytest.mark.integration
+def test_failed_execution_cleans_workspace_and_marks_job_failed() -> None:
+    asyncio.run(_failed_execution_cleans_workspace_and_marks_job_failed())
+
+
+async def _failed_execution_cleans_workspace_and_marks_job_failed() -> None:
+    database_url = os.environ["DATABASE_URL"]
+    redis_url = os.environ["REDIS_URL"]
+    engine = make_engine(database_url)
+    sessions = make_session_factory(engine)
+    redis_client = Redis.from_url(redis_url, decode_responses=True)
+    temp_root = Path(tempfile.mkdtemp(prefix="simpleconvbot-failure-test-"))
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+        await redis_client.flushdb()
+
+        repository = PostgresJobRepository(sessions)
+        queue = RedisJobQueue(redis_client, prefix="test:failure")
+        registry = OperationRegistry([OperationDefinition("test.noop", 1, "test")])
+        service = JobService(repository, queue, registry)
+        started = await service.start_operation(
+            StartJobRequest(
+                user_id=101,
+                chat_id=202,
+                source_message_id=303,
+                operation_id="test.noop",
+                operation_version=1,
+            )
+        )
+
+        worker = JobWorker(
+            repository=repository,
+            registry=registry,
+            storage=LocalTemporaryStorage(temp_root),
+            executor=FailingExecutor(),
+            delivery=RecordingDelivery(),
+        )
+        runner = QueueWorker(queue, worker)
+
+        assert await runner.run_once()
+
+        final = await repository.get(started.job.job_id)
+        assert final.state is JobState.FAILED
+        assert not (temp_root / str(started.job.job_id)).exists()
+    finally:
+        await redis_client.aclose()
+        await engine.dispose()
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
+@pytest.mark.integration
 def test_repository_restart_preserves_uncertain_state() -> None:
     asyncio.run(_repository_restart_preserves_uncertain_state())
 
@@ -160,7 +224,6 @@ async def _repository_restart_preserves_uncertain_state() -> None:
         recovered = await repository_after_restart.get(UUID(str(started.job.job_id)))
 
         assert recovered.state is JobState.PROCESSING
-        assert recovered.state is not JobState.COMPLETED
     finally:
         await redis_client.aclose()
         await engine.dispose()

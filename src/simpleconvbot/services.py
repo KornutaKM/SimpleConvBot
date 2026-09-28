@@ -148,6 +148,9 @@ class JobWorker:
                 JobState.COMPLETED,
             )
         except Exception:
+            with suppress(Exception):
+                await self._storage.cleanup_workspace(job_id)
+
             current = await self._repository.get(job_id)
             if can_transition(current.state, JobState.FAILED):
                 with suppress(InvalidTransition):
