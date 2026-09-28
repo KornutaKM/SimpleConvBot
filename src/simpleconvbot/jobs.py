@@ -29,7 +29,9 @@ TERMINAL_STATES = frozenset(
     }
 )
 
-ACTIVE_STATES = frozenset(set(JobState) - set(TERMINAL_STATES))
+ACTIVE_STATES: frozenset[JobState] = frozenset(
+    state for state in JobState if state not in TERMINAL_STATES
+)
 
 _ALLOWED_TRANSITIONS: dict[JobState, frozenset[JobState]] = {
     JobState.RECEIVED: frozenset({JobState.VALIDATING, JobState.REJECTED, JobState.FAILED}),
