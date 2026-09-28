@@ -13,8 +13,9 @@ The image engine must also remain independent of Telegram so it can be tested de
 - Use Pillow 12.3.0 for JPEG/PNG/WEBP decoding and encoding.
 - Use pillow-heif 1.8.0 to register HEIF/HEIC support with Pillow.
 - Detect actual format using decoder/content inspection, never extension alone.
-- Apply explicit width, height, pixel-count, and output-byte bounds.
-- Promote Pillow decompression-bomb warnings to failures.
+- Apply explicit input-byte, width, height, pixel-count, and output-byte bounds.
+- Promote Pillow decompression-bomb warnings and errors to failures.
+- Limit HEIF decoding to one decoder thread per operation; worker-level concurrency controls aggregate CPU use.
 - Reject multi-frame inputs in the initial image MVP.
 - Apply EXIF orientation before transformation.
 - Do not propagate arbitrary EXIF/XMP metadata to outputs.
