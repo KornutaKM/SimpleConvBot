@@ -79,9 +79,6 @@ jobs:
           echo "SIMPLECONVBOT_FFMPEG_PATH=$FFMPEG_PATH" >> "$GITHUB_ENV"
           echo "SIMPLECONVBOT_FFPROBE_PATH=$FFPROBE_PATH" >> "$GITHUB_ENV"
 
-      - name: Diagnostic format diff
-        run: python -m ruff format --diff src/simpleconvbot/postgres.py || true
-
       - name: Verify
         run: python scripts/verify.py
 

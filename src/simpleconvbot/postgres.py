@@ -209,9 +209,7 @@ class PostgresJobRepository:
             active_values = tuple(state.value for state in ACTIVE_STATES)
             global_active = int(
                 await session.scalar(
-                    select(func.count())
-                    .select_from(JobRow)
-                    .where(JobRow.state.in_(active_values))
+                    select(func.count()).select_from(JobRow).where(JobRow.state.in_(active_values))
                 )
                 or 0
             )
