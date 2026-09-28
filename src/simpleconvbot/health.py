@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from enum import StrEnum
 from time import monotonic
@@ -77,12 +78,12 @@ async def _redis_ping(client: Redis) -> None:
 
 async def _probe(
     component: str,
-    awaitable: object,
+    awaitable: Awaitable[None],
     timeout_seconds: float,
 ) -> ComponentHealth:
     started = monotonic()
     try:
-        await asyncio.wait_for(_as_awaitable(awaitable), timeout=timeout_seconds)
+        await asyncio.wait_for(awaitable, timeout=timeout_seconds)
     except Exception as exc:
         return ComponentHealth(
             component=component,
@@ -95,9 +96,3 @@ async def _probe(
         state=HealthState.UP,
         latency_ms=(monotonic() - started) * 1000,
     )
-
-
-async def _as_awaitable(value: object) -> None:
-    if not hasattr(value, "__await__"):
-        raise TypeError("health probe must be awaitable")
-    await value  # type: ignore[misc]
