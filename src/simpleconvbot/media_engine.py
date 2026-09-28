@@ -252,9 +252,13 @@ class MediaEngine:
             raise MediaEngineError(MediaErrorCode.INVALID_OPERATION, "unsupported audio target")
 
         output = self._transcode(source, destination, media_args)
-        info = self._probe(output, max_bytes=self._policy.max_output_bytes)
-        self._validate_audio_output(info, expected_container, expected_codec)
-        return info
+        try:
+            info = self._probe(output, max_bytes=self._policy.max_output_bytes)
+            self._validate_audio_output(info, expected_container, expected_codec)
+            return info
+        except MediaEngineError:
+            self._remove_output(output)
+            raise
 
     def video_to_mp3(self, source: Path, destination: Path) -> MediaInfo:
         source_info = self.inspect(source)
@@ -265,9 +269,13 @@ class MediaEngine:
             destination,
             ("-vn", "-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3"),
         )
-        info = self._probe(output, max_bytes=self._policy.max_output_bytes)
-        self._validate_audio_output(info, "mp3", "mp3")
-        return info
+        try:
+            info = self._probe(output, max_bytes=self._policy.max_output_bytes)
+            self._validate_audio_output(info, "mp3", "mp3")
+            return info
+        except MediaEngineError:
+            self._remove_output(output)
+            raise
 
     def mute_video(self, source: Path, destination: Path) -> MediaInfo:
         source_info = self.inspect(source)
@@ -289,9 +297,13 @@ class MediaEngine:
                 "mp4",
             ),
         )
-        info = self._probe(output, max_bytes=self._policy.max_output_bytes)
-        self._validate_mp4_video(info, allow_audio=False)
-        return info
+        try:
+            info = self._probe(output, max_bytes=self._policy.max_output_bytes)
+            self._validate_mp4_video(info, allow_audio=False)
+            return info
+        except MediaEngineError:
+            self._remove_output(output)
+            raise
 
     def video_to_gif(self, source: Path, destination: Path) -> MediaInfo:
         source_info = self.inspect(source)
@@ -322,14 +334,17 @@ class MediaEngine:
                 "gif",
             ),
         )
-        info = self._probe(output, max_bytes=self._policy.max_output_bytes)
-        if "gif" not in info.container_formats or not info.video_streams:
-            self._remove_output(destination)
-            raise MediaEngineError(
-                MediaErrorCode.OUTPUT_VALIDATION_FAILED,
-                "GIF output validation failed",
-            )
-        return info
+        try:
+            info = self._probe(output, max_bytes=self._policy.max_output_bytes)
+            if "gif" not in info.container_formats or not info.video_streams:
+                raise MediaEngineError(
+                    MediaErrorCode.OUTPUT_VALIDATION_FAILED,
+                    "GIF output validation failed",
+                )
+            return info
+        except MediaEngineError:
+            self._remove_output(output)
+            raise
 
     def compress_video(
         self,
@@ -366,9 +381,13 @@ class MediaEngine:
                 "mp4",
             ),
         )
-        info = self._probe(output, max_bytes=self._policy.max_output_bytes)
-        self._validate_mp4_video(info, allow_audio=True)
-        return info
+        try:
+            info = self._probe(output, max_bytes=self._policy.max_output_bytes)
+            self._validate_mp4_video(info, allow_audio=True)
+            return info
+        except MediaEngineError:
+            self._remove_output(output)
+            raise
 
     def _transcode(
         self,
