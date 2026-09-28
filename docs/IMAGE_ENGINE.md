@@ -23,8 +23,9 @@ HEIF/HEIC is an input format in v0.1, not an advertised output format.
 
 ## Safety policy
 
-Default decoded-image bounds:
+Default bounds:
 
+- input file bytes: 20 MiB
 - width: 16,384 px
 - height: 16,384 px
 - total pixels: 40,000,000
@@ -32,7 +33,9 @@ Default decoded-image bounds:
 
 These are application safety limits, not claims about the maximum capability of Pillow/libheif.
 
-Pillow decompression-bomb warnings are promoted to hard errors. Application dimension/pixel checks are applied before full image decoding whenever the decoder exposes dimensions at open time.
+Input bytes are checked before the decoder is opened. Pillow decompression-bomb warnings and errors are promoted to hard failures. Application dimension/pixel checks are applied before full image decoding whenever the decoder exposes dimensions at open time.
+
+HEIF thumbnails are disabled and HEIF decoding is configured for one decode thread in this worker implementation.
 
 Multi-frame/animated images are rejected in the first image MVP instead of silently dropping frames.
 
@@ -55,7 +58,7 @@ JPEG has no alpha channel. Transparent input converted to JPEG is composited ont
 - height-only preserves aspect ratio
 - width+height means fit within that box while preserving aspect ratio
 
-Resize never intentionally enlarges beyond configured image bounds.
+Resolved output dimensions must remain within image policy bounds.
 
 ## Compression presets
 
@@ -71,6 +74,7 @@ Numeric encoder settings are internal policy and may evolve without changing the
 
 Stable image-engine codes:
 
+- input_too_large
 - unsupported_type
 - corrupt_input
 - dimensions_exceeded
@@ -81,3 +85,7 @@ Stable image-engine codes:
 - output_validation_failed
 
 Telegram wording/localization should map from these codes rather than parsing exception text.
+
+## Test corpus
+
+The committed Base64 corpus includes malformed input and a PNG header declaring 50,000 x 50,000 pixels without allocating that decoded image. Codec round-trip coverage exercises JPEG, PNG, WEBP and HEIF using the exact-pinned runtime codecs.

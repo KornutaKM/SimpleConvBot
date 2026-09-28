@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 import pytest
@@ -17,10 +18,17 @@ from simpleconvbot.image_engine import (
     ResizeSpec,
 )
 
+FIXTURES = Path(__file__).parent / "fixtures" / "images"
+
 
 def _save_rgb(path: Path, image_format: str = "PNG", size: tuple[int, int] = (80, 40)) -> None:
     with Image.new("RGB", size, (10, 100, 200)) as image:
         image.save(path, format=image_format)
+
+
+def _fixture(name: str) -> bytes:
+    encoded = (FIXTURES / name).read_text(encoding="ascii")
+    return base64.b64decode(encoded)
 
 
 def test_inspection_uses_content_not_filename_extension(tmp_path: Path) -> None:
@@ -35,7 +43,7 @@ def test_inspection_uses_content_not_filename_extension(tmp_path: Path) -> None:
 
 def test_corrupt_input_has_stable_error_code(tmp_path: Path) -> None:
     source = tmp_path / "broken.png"
-    source.write_bytes(b"not-an-image")
+    source.write_bytes(_fixture("malformed_png.b64"))
 
     with pytest.raises(ImageEngineError) as captured:
         ImageEngine().inspect(source)
@@ -43,11 +51,46 @@ def test_corrupt_input_has_stable_error_code(tmp_path: Path) -> None:
     assert captured.value.code is ImageErrorCode.CORRUPT_INPUT
 
 
+def test_input_byte_limit_is_checked_before_decode(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    _save_rgb(source)
+    engine = ImageEngine(
+        ImagePolicy(
+            max_input_bytes=1,
+            max_width=100,
+            max_height=100,
+            max_pixels=10_000,
+            max_output_bytes=1024 * 1024,
+        )
+    )
+
+    with pytest.raises(ImageEngineError) as captured:
+        engine.inspect(source)
+
+    assert captured.value.code is ImageErrorCode.INPUT_TOO_LARGE
+
+
+def test_oversized_header_maps_decoder_bomb_to_stable_error(tmp_path: Path) -> None:
+    source = tmp_path / "huge.png"
+    source.write_bytes(_fixture("oversized_header_png.b64"))
+
+    with pytest.raises(ImageEngineError) as captured:
+        ImageEngine().inspect(source)
+
+    assert captured.value.code is ImageErrorCode.PIXELS_EXCEEDED
+
+
 def test_dimensions_are_rejected_before_transform(tmp_path: Path) -> None:
     source = tmp_path / "wide.png"
     _save_rgb(source, size=(64, 16))
     engine = ImageEngine(
-        ImagePolicy(max_width=32, max_height=32, max_pixels=1024, max_output_bytes=1024 * 1024)
+        ImagePolicy(
+            max_input_bytes=1024 * 1024,
+            max_width=32,
+            max_height=32,
+            max_pixels=1024,
+            max_output_bytes=1024 * 1024,
+        )
     )
 
     with pytest.raises(ImageEngineError) as captured:
@@ -116,7 +159,13 @@ def test_resize_target_is_bounded_by_policy(tmp_path: Path) -> None:
     output = tmp_path / "result.png"
     _save_rgb(source, size=(20, 20))
     engine = ImageEngine(
-        ImagePolicy(max_width=100, max_height=100, max_pixels=10_000, max_output_bytes=1024 * 1024)
+        ImagePolicy(
+            max_input_bytes=1024 * 1024,
+            max_width=100,
+            max_height=100,
+            max_pixels=10_000,
+            max_output_bytes=1024 * 1024,
+        )
     )
 
     with pytest.raises(ImageEngineError) as captured:
@@ -177,7 +226,13 @@ def test_output_size_limit_removes_output(tmp_path: Path) -> None:
     output = tmp_path / "result.png"
     _save_rgb(source, size=(20, 20))
     engine = ImageEngine(
-        ImagePolicy(max_width=100, max_height=100, max_pixels=10_000, max_output_bytes=1)
+        ImagePolicy(
+            max_input_bytes=1024 * 1024,
+            max_width=100,
+            max_height=100,
+            max_pixels=10_000,
+            max_output_bytes=1,
+        )
     )
 
     with pytest.raises(ImageEngineError) as captured:
@@ -185,6 +240,32 @@ def test_output_size_limit_removes_output(tmp_path: Path) -> None:
 
     assert captured.value.code is ImageErrorCode.OUTPUT_TOO_LARGE
     assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "target_format",
+    [
+        ImageOutputFormat.JPEG,
+        ImageOutputFormat.PNG,
+        ImageOutputFormat.WEBP,
+    ],
+)
+def test_every_advertised_output_is_content_validated(
+    tmp_path: Path,
+    target_format: ImageOutputFormat,
+) -> None:
+    source = tmp_path / "input.bin"
+    output = tmp_path / "output.bin"
+    _save_rgb(source, size=(23, 17))
+
+    result = ImageEngine().transform(
+        source,
+        output,
+        ImageTransform(target_format=target_format),
+    )
+
+    assert result.output_info.image_format.value == target_format.value
+    assert (result.output_info.width, result.output_info.height) == (23, 17)
 
 
 @pytest.mark.parametrize(
