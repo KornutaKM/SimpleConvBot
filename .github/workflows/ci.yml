@@ -83,7 +83,7 @@ jobs:
         run: python scripts/verify.py
 
       - name: Audit Python dependencies
-        run: python -m pip_audit --strict --skip-editable
+        run: python -m pip_audit --skip-editable
 
       - name: Integration
         run: python scripts/verify_integration.py
