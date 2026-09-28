@@ -61,6 +61,11 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
 
+      - name: Verify media toolchain
+        run: |
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
       - name: Verify
         run: python scripts/verify.py
 
@@ -72,3 +77,8 @@ jobs:
 
       - name: Smoke production image
         run: docker run --rm simpleconvbot:ci python -m simpleconvbot --version
+
+      - name: Smoke production media toolchain
+        run: |
+          docker run --rm simpleconvbot:ci ffmpeg -version
+          docker run --rm simpleconvbot:ci ffprobe -version

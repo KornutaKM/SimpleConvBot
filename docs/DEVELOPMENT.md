@@ -5,6 +5,7 @@
 - Python 3.12
 - Docker with Compose support
 - PostgreSQL and Redis for integration tests and runtime
+- FFmpeg and ffprobe for media-engine tests/runtime when running outside the project containers
 
 ## Bootstrap
 
@@ -48,7 +49,7 @@ Replace all placeholder secrets in `.env`. The real `.env` file is ignored by Gi
 python scripts/verify.py
 ```
 
-This runs formatting, linting, strict mypy, and all tests that do not require external infrastructure.
+This runs formatting, linting, strict mypy, and all tests that do not require PostgreSQL/Redis. MEDIA-001 tests invoke the locally installed ffmpeg/ffprobe toolchain.
 
 ## Integration gate
 
@@ -84,10 +85,14 @@ The current runtime creates the pre-alpha schema if it does not exist. Before sc
 
 ## Containerized quality check
 
+The development image includes ffmpeg/ffprobe:
+
 ```bash
 docker build -f docker/Dockerfile.dev -t simpleconvbot-dev .
 docker run --rm simpleconvbot-dev
 ```
+
+The production image also installs the trusted media toolchain and runs as the non-root `simpleconvbot` user.
 
 ## Configuration rules
 
@@ -97,6 +102,7 @@ docker run --rm simpleconvbot-dev
 - runtime validates required settings before polling
 - PostgreSQL is durable job/update authority
 - Redis is an at-least-once queue transport
+- FFmpeg/ffprobe executable paths are trusted worker configuration, never user parameters
 
 ## Repository layout
 
