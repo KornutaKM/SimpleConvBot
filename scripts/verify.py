@@ -15,7 +15,7 @@ def main() -> int:
     run(("ruff", "format", "--check", "."))
     run(("ruff", "check", "."))
     run(("mypy", "src", "tests"))
-    run(("pytest",))
+    run(("pytest", "-m", "not integration"))
     return 0
 
 

@@ -8,7 +8,12 @@ version = "0.1.0.dev0"
 description = "Telegram File Toolbox"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-dependencies = []
+dependencies = [
+  "SQLAlchemy[asyncio]==2.0.54",
+  "aiogram==3.31.0",
+  "asyncpg==0.31.0",
+  "redis==8.1.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -23,6 +28,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = ["-q", "--strict-config", "--strict-markers"]
 testpaths = ["tests"]
+markers = [
+  "integration: tests requiring local PostgreSQL and Redis",
+]
 
 [tool.ruff]
 target-version = "py312"

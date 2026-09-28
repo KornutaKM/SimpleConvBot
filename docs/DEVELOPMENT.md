@@ -3,9 +3,8 @@
 ## Requirements
 
 - Python 3.12
-- Docker with Compose support for local PostgreSQL/Redis when those services are needed
-
-The foundation intentionally has no production runtime dependencies yet. Runtime dependencies are added by the issue that first requires them.
+- Docker with Compose support
+- PostgreSQL and Redis for integration tests and runtime
 
 ## Bootstrap
 
@@ -41,98 +40,74 @@ Create local environment configuration:
 cp .env.example .env
 ```
 
-On Windows, copy `.env.example` to `.env` using Explorer or PowerShell.
-
 Replace all placeholder secrets in `.env`. The real `.env` file is ignored by Git.
 
-## Quality gate
-
-One command runs the same core checks as CI:
+## Fast quality gate
 
 ```bash
 python scripts/verify.py
 ```
 
-It executes:
+This runs formatting, linting, strict mypy, and all tests that do not require external infrastructure.
 
-1. Ruff formatting check
-2. Ruff lint
-3. strict mypy
-4. pytest
+## Integration gate
 
-Individual commands:
-
-```bash
-python -m ruff format --check .
-python -m ruff check .
-python -m mypy src tests
-python -m pytest
-```
-
-## Local infrastructure
-
-PostgreSQL and Redis are defined in `compose.yaml`.
-
-After creating `.env`:
+Start PostgreSQL and Redis:
 
 ```bash
 docker compose up -d postgres redis
-docker compose ps
 ```
 
-Stop services:
+Export/load the `DATABASE_URL` and `REDIS_URL` values from your local `.env`, then run:
 
 ```bash
-docker compose down
+python scripts/verify_integration.py
 ```
 
-Remove development database data only when intentionally resetting local state:
+CI runs both the fast and integration gates.
+
+## Runtime
+
+After providing a real `TELEGRAM_BOT_TOKEN` and service URLs:
 
 ```bash
-docker compose down -v
+python -m simpleconvbot
 ```
+
+Version check without starting Telegram polling:
+
+```bash
+python -m simpleconvbot --version
+```
+
+The current runtime creates the pre-alpha schema if it does not exist. Before schema evolution/public release, explicit database migrations must replace this bootstrap-only behavior.
 
 ## Containerized quality check
-
-The development image is intentionally a verification image at this stage:
 
 ```bash
 docker build -f docker/Dockerfile.dev -t simpleconvbot-dev .
 docker run --rm simpleconvbot-dev
 ```
 
-The application runtime container is deferred until CORE-001 defines the actual bot/application process.
-
-## Configuration
-
-`simpleconvbot.config.Settings` is the single foundation configuration model.
-
-Rules:
+## Configuration rules
 
 - secrets come from environment/local secret injection
 - token values are excluded from dataclass representation
-- no `.env` loader is embedded in production code
-- development tools may load `.env` externally later
-- configuration must be validated before bot runtime starts
-
-## Dependency policy
-
-Dependencies belong in `pyproject.toml`.
-
-Development tools are exact-pinned so the repository quality gate does not drift silently. Production dependencies should be introduced only by the issue that needs them, with compatibility and security review.
-
-A generated lock file may be introduced when the runtime dependency graph becomes non-trivial; it should then become the CI installation source.
+- no real `.env` file is committed
+- runtime validates required settings before polling
+- PostgreSQL is durable job/update authority
+- Redis is an at-least-once queue transport
 
 ## Repository layout
 
 ```text
-src/simpleconvbot/   application package
-tests/               automated tests
-scripts/             repository automation with bounded purpose
+src/simpleconvbot/   application/control-plane package
+tests/               unit and integration tests
+scripts/             bounded repository verification commands
 docs/                product/architecture/security/development docs
 docs/adr/            architecture decision records
 docker/              container definitions
 .github/workflows/   CI
 ```
 
-Conversion engines will receive dedicated modules/packages in their own issues. Do not place conversion logic in the Telegram gateway.
+Conversion engines are added by their own issues. Conversion logic does not belong in the Telegram gateway.

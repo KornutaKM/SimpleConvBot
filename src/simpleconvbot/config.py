@@ -23,7 +23,7 @@ class Settings:
     log_level: str = "INFO"
     telegram_bot_token: str | None = field(default=None, repr=False)
     database_url: str = field(
-        default="postgresql://simpleconvbot@localhost:5432/simpleconvbot",
+        default="postgresql+asyncpg://simpleconvbot@localhost:5432/simpleconvbot",
         repr=False,
     )
     redis_url: str = "redis://localhost:6379/0"
@@ -52,7 +52,7 @@ class Settings:
             telegram_bot_token=_optional_secret(values.get("TELEGRAM_BOT_TOKEN")),
             database_url=values.get(
                 "DATABASE_URL",
-                "postgresql://simpleconvbot@localhost:5432/simpleconvbot",
+                "postgresql+asyncpg://simpleconvbot@localhost:5432/simpleconvbot",
             ).strip(),
             redis_url=values.get("REDIS_URL", "redis://localhost:6379/0").strip(),
             temp_root=Path(values.get("TEMP_ROOT", "var/jobs")).expanduser(),

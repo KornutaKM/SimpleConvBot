@@ -17,6 +17,37 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_DB: simpleconvbot
+          POSTGRES_USER: simpleconvbot
+          POSTGRES_PASSWORD: simpleconvbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U simpleconvbot -d simpleconvbot"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://simpleconvbot:simpleconvbot@localhost:5432/simpleconvbot
+      REDIS_URL: redis://localhost:6379/0
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,3 +63,6 @@ jobs:
 
       - name: Verify
         run: python scripts/verify.py
+
+      - name: Integration
+        run: python scripts/verify_integration.py
