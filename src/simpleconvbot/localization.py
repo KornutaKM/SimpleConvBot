@@ -1,8 +1,8 @@
-from __future__ import annotations
-
 # Russian translations intentionally contain Cyrillic characters that Ruff's
 # confusable-character rule flags by design in mixed-language source files.
 # ruff: noqa: RUF001
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
