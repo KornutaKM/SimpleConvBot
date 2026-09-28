@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from contextlib import suppress
 from asyncio import to_thread
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
