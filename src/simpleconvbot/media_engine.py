@@ -224,7 +224,6 @@ class MediaEngine:
         self._require_audio(source_info)
 
         media_args: tuple[str, ...]
-        media_args: tuple[str, ...]
         if target is AudioOutputFormat.MP3:
             media_args = ("-vn", "-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3")
             expected_container = "mp3"
