@@ -9,7 +9,7 @@ from typing import Any
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
-register_heif_opener(thumbnails=False)
+register_heif_opener(thumbnails=False, decode_threads=1)
 
 
 class ImageFormat(StrEnum):
@@ -32,6 +32,7 @@ class CompressionPreset(StrEnum):
 
 
 class ImageErrorCode(StrEnum):
+    INPUT_TOO_LARGE = "input_too_large"
     UNSUPPORTED_TYPE = "unsupported_type"
     CORRUPT_INPUT = "corrupt_input"
     DIMENSIONS_EXCEEDED = "dimensions_exceeded"
@@ -50,6 +51,7 @@ class ImageEngineError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ImagePolicy:
+    max_input_bytes: int = 20 * 1024 * 1024
     max_width: int = 16_384
     max_height: int = 16_384
     max_pixels: int = 40_000_000
@@ -57,6 +59,7 @@ class ImagePolicy:
 
     def __post_init__(self) -> None:
         for name, value in (
+            ("max_input_bytes", self.max_input_bytes),
             ("max_width", self.max_width),
             ("max_height", self.max_height),
             ("max_pixels", self.max_pixels),
@@ -139,7 +142,7 @@ class ImageEngine:
         self._policy = policy or ImagePolicy()
 
     def inspect(self, source: Path) -> ImageInfo:
-        image = self._load_checked(source)
+        image = self._load_checked(source, max_bytes=self._policy.max_input_bytes)
         try:
             return _info(source, image)
         finally:
@@ -157,7 +160,7 @@ class ImageEngine:
                 "input and output paths must be different",
             )
 
-        image = self._load_checked(source)
+        image = self._load_checked(source, max_bytes=self._policy.max_input_bytes)
         try:
             input_info = _info(source, image)
             normalized = ImageOps.exif_transpose(image)
@@ -187,7 +190,16 @@ class ImageEngine:
             finally:
                 prepared.close()
 
-            if destination.stat().st_size > self._policy.max_output_bytes:
+            try:
+                output_bytes = destination.stat().st_size
+            except OSError as exc:
+                destination.unlink(missing_ok=True)
+                raise ImageEngineError(
+                    ImageErrorCode.OUTPUT_VALIDATION_FAILED,
+                    "encoded output is not readable",
+                ) from exc
+
+            if output_bytes > self._policy.max_output_bytes:
                 destination.unlink(missing_ok=True)
                 raise ImageEngineError(
                     ImageErrorCode.OUTPUT_TOO_LARGE,
@@ -201,18 +213,31 @@ class ImageEngine:
                 output_path=destination,
             )
         except Exception:
-            if destination.exists():
-                destination.unlink(missing_ok=True)
+            destination.unlink(missing_ok=True)
             raise
         finally:
             image.close()
 
-    def _load_checked(self, source: Path) -> Image.Image:
+    def _load_checked(self, source: Path, *, max_bytes: int) -> Image.Image:
+        try:
+            input_bytes = source.stat().st_size
+        except OSError as exc:
+            raise ImageEngineError(
+                ImageErrorCode.CORRUPT_INPUT,
+                "image file is not readable",
+            ) from exc
+
+        if input_bytes > max_bytes:
+            raise ImageEngineError(
+                ImageErrorCode.INPUT_TOO_LARGE,
+                "image file exceeds configured byte limit",
+            )
+
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", Image.DecompressionBombWarning)
                 image = Image.open(source)
-        except Image.DecompressionBombWarning as exc:
+        except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
             raise ImageEngineError(
                 ImageErrorCode.PIXELS_EXCEEDED,
                 "image exceeds decoder safety limits",
@@ -224,8 +249,7 @@ class ImageEngine:
             ) from exc
 
         try:
-            image_format = _parse_input_format(image.format)
-            del image_format
+            _parse_input_format(image.format)
             width, height = image.size
             self._validate_dimensions(width, height)
 
@@ -241,7 +265,7 @@ class ImageEngine:
         except ImageEngineError:
             image.close()
             raise
-        except Image.DecompressionBombWarning as exc:
+        except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
             image.close()
             raise ImageEngineError(
                 ImageErrorCode.PIXELS_EXCEEDED,
@@ -289,25 +313,29 @@ class ImageEngine:
         expected_format: ImageOutputFormat,
     ) -> ImageInfo:
         try:
-            with Image.open(destination) as output:
+            output = self._load_checked(destination, max_bytes=self._policy.max_output_bytes)
+            try:
                 actual_format = _parse_input_format(output.format)
                 if actual_format.value != expected_format.value:
                     raise ImageEngineError(
                         ImageErrorCode.OUTPUT_VALIDATION_FAILED,
                         "encoded output format does not match the requested format",
                     )
-                self._validate_dimensions(*output.size)
-                output.verify()
-
-            return self.inspect(destination)
-        except ImageEngineError:
+                return _info(destination, output)
+            finally:
+                output.close()
+        except ImageEngineError as exc:
             destination.unlink(missing_ok=True)
-            raise
-        except (UnidentifiedImageError, OSError, ValueError) as exc:
-            destination.unlink(missing_ok=True)
+            if exc.code is ImageErrorCode.INPUT_TOO_LARGE:
+                raise ImageEngineError(
+                    ImageErrorCode.OUTPUT_TOO_LARGE,
+                    "image output exceeds configured byte limit",
+                ) from exc
+            if exc.code is ImageErrorCode.OUTPUT_VALIDATION_FAILED:
+                raise
             raise ImageEngineError(
                 ImageErrorCode.OUTPUT_VALIDATION_FAILED,
-                "encoded output failed validation",
+                f"encoded output failed validation: {exc.code.value}",
             ) from exc
 
 
