@@ -16,7 +16,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -66,3 +66,9 @@ jobs:
 
       - name: Integration
         run: python scripts/verify_integration.py
+
+      - name: Build production image
+        run: docker build --tag simpleconvbot:ci .
+
+      - name: Smoke production image
+        run: docker run --rm simpleconvbot:ci python -m simpleconvbot --version

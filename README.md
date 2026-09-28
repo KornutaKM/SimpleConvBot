@@ -75,6 +75,7 @@ Official reference: https://core.telegram.org/bots/api
 - docs/ARCHITECTURE.md — system design and state machines
 - docs/SECURITY_PRIVACY.md — threat model and privacy contract
 - docs/ROADMAP.md — implementation sequence and release gates
+- docs/DEPLOYMENT.md — private Telegram deployment runbook
 
 ## Working model
 

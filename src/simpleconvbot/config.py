@@ -46,14 +46,18 @@ class Settings:
             values.get("TEMP_TTL_SECONDS", "3600"),
         )
 
+        database_url = _normalize_database_url(
+            values.get(
+                "DATABASE_URL",
+                "postgresql+asyncpg://simpleconvbot@localhost:5432/simpleconvbot",
+            ).strip()
+        )
+
         return cls(
             environment=environment,
             log_level=log_level,
             telegram_bot_token=_optional_secret(values.get("TELEGRAM_BOT_TOKEN")),
-            database_url=values.get(
-                "DATABASE_URL",
-                "postgresql+asyncpg://simpleconvbot@localhost:5432/simpleconvbot",
-            ).strip(),
+            database_url=database_url,
             redis_url=values.get("REDIS_URL", "redis://localhost:6379/0").strip(),
             temp_root=Path(values.get("TEMP_ROOT", "var/jobs")).expanduser(),
             temp_ttl_seconds=temp_ttl_seconds,
@@ -91,3 +95,13 @@ def _optional_secret(raw: str | None) -> str | None:
         return None
     value = raw.strip()
     return value or None
+
+
+def _normalize_database_url(raw: str) -> str:
+    if raw.startswith("postgresql+asyncpg://"):
+        return raw
+    if raw.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + raw.removeprefix("postgresql://")
+    if raw.startswith("postgres://"):
+        return "postgresql+asyncpg://" + raw.removeprefix("postgres://")
+    return raw

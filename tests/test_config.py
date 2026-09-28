@@ -32,10 +32,33 @@ def test_settings_parse_values() -> None:
     assert settings.environment is Environment.PRODUCTION
     assert settings.log_level == "WARNING"
     assert settings.telegram_bot_token == "secret-token"
-    assert settings.database_url == "postgresql://db/service"
+    assert settings.database_url == "postgresql+asyncpg://db/service"
     assert settings.redis_url == "redis://cache:6379/1"
     assert settings.temp_root == Path("/tmp/simpleconvbot")
     assert settings.temp_ttl_seconds == 900
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (
+            "postgresql://db.internal:5432/app?sslmode=require",
+            "postgresql+asyncpg://db.internal:5432/app?sslmode=require",
+        ),
+        (
+            "postgres://db.internal:5432/app",
+            "postgresql+asyncpg://db.internal:5432/app",
+        ),
+        (
+            "postgresql+asyncpg://db.internal:5432/app",
+            "postgresql+asyncpg://db.internal:5432/app",
+        ),
+    ],
+)
+def test_provider_postgres_urls_use_asyncpg_driver(raw: str, expected: str) -> None:
+    settings = Settings.from_mapping({"DATABASE_URL": raw})
+
+    assert settings.database_url == expected
 
 
 @pytest.mark.parametrize("raw", ["0", "-1", "abc"])
