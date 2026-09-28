@@ -9,9 +9,11 @@ description = "Telegram File Toolbox"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
+  "Pillow==12.3.0",
   "SQLAlchemy[asyncio]==2.0.54",
   "aiogram==3.31.0",
   "asyncpg==0.31.0",
+  "pillow-heif==1.8.0",
   "redis==8.1.0",
 ]
 
