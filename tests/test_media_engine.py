@@ -239,6 +239,36 @@ def test_gif_duration_limit_rejects_long_video(tmp_path: Path) -> None:
     assert captured.value.code is MediaErrorCode.DURATION_LIMIT_EXCEEDED
 
 
+class RejectingOutputMediaEngine(MediaEngine):
+    def _validate_audio_output(
+        self,
+        info: object,
+        expected_container: str,
+        expected_codec: str,
+    ) -> None:
+        del info, expected_container, expected_codec
+        raise MediaEngineError(
+            MediaErrorCode.OUTPUT_VALIDATION_FAILED,
+            "synthetic output contract rejection",
+        )
+
+
+def test_post_validation_failure_removes_final_output(tmp_path: Path) -> None:
+    source = tmp_path / "tone.wav"
+    destination = tmp_path / "out.mp3"
+    _make_wav(source)
+
+    with pytest.raises(MediaEngineError) as captured:
+        RejectingOutputMediaEngine().convert_audio(
+            source,
+            destination,
+            AudioOutputFormat.MP3,
+        )
+
+    assert captured.value.code is MediaErrorCode.OUTPUT_VALIDATION_FAILED
+    assert not destination.exists()
+
+
 def test_output_size_limit_cleans_partial_and_final(tmp_path: Path) -> None:
     source = tmp_path / "tone.wav"
     destination = tmp_path / "out.mp3"
