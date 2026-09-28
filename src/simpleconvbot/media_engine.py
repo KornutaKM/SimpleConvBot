@@ -689,7 +689,7 @@ def _partial_path(destination: Path) -> Path:
 def _optional_float(value: object) -> float | None:
     if value is None or value == "N/A" or isinstance(value, bool):
         return None
-    if not isinstance(value, (str, int, float)):
+    if not isinstance(value, str | int | float):
         return None
     parsed = float(value)
     if not math.isfinite(parsed) or parsed < 0:
@@ -700,7 +700,7 @@ def _optional_float(value: object) -> float | None:
 def _optional_int(value: object) -> int | None:
     if value is None or value == "N/A" or isinstance(value, bool):
         return None
-    if not isinstance(value, (str, int)):
+    if not isinstance(value, str | int):
         return None
     parsed = int(value)
     return parsed if parsed >= 0 else None
