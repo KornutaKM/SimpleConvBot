@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
@@ -149,14 +150,12 @@ class JobWorker:
         except Exception:
             current = await self._repository.get(job_id)
             if can_transition(current.state, JobState.FAILED):
-                try:
+                with suppress(InvalidTransition):
                     await self._repository.transition(
                         job_id,
                         current.state,
                         JobState.FAILED,
                     )
-                except InvalidTransition:
-                    pass
             return WorkerOutcome.FAILED
 
         return WorkerOutcome.COMPLETED
