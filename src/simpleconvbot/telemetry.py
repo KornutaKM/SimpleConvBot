@@ -56,9 +56,10 @@ class TelemetryEvent:
             r"[0-9a-f]{16}", self.correlation_id
         ):
             raise ValueError("correlation_id must be a 16-character hex token")
-        if self.duration_ms is not None:
-            if not math.isfinite(self.duration_ms) or self.duration_ms < 0:
-                raise ValueError("duration_ms must be finite and non-negative")
+        if self.duration_ms is not None and (
+            not math.isfinite(self.duration_ms) or self.duration_ms < 0
+        ):
+            raise ValueError("duration_ms must be finite and non-negative")
         if self.count is not None and self.count < 0:
             raise ValueError("count must be non-negative")
 
