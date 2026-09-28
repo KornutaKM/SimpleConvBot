@@ -22,7 +22,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "mypy==1.15.0",
-  "pytest==8.3.5",
+  "pip-audit==2.10.1",
+  "pytest==9.0.3",
   "ruff==0.9.10",
 ]
 
@@ -57,6 +58,7 @@ line-ending = "lf"
 
 [tool.mypy]
 python_version = "3.12"
+platform = "linux"
 strict = true
 files = ["src", "tests"]
 warn_unreachable = true

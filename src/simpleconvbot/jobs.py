@@ -29,6 +29,10 @@ TERMINAL_STATES = frozenset(
     }
 )
 
+ACTIVE_STATES: frozenset[JobState] = frozenset(
+    state for state in JobState if state not in TERMINAL_STATES
+)
+
 _ALLOWED_TRANSITIONS: dict[JobState, frozenset[JobState]] = {
     JobState.RECEIVED: frozenset({JobState.VALIDATING, JobState.REJECTED, JobState.FAILED}),
     JobState.VALIDATING: frozenset({JobState.QUEUED, JobState.REJECTED, JobState.FAILED}),
@@ -51,6 +55,31 @@ class JobError(RuntimeError):
 
 class JobNotFound(JobError):
     """Raised when a requested job does not exist."""
+
+
+class JobAdmissionCode(StrEnum):
+    USER_CONCURRENCY = "job_user_concurrency_limit"
+    GLOBAL_CONCURRENCY = "job_global_concurrency_limit"
+
+
+class JobAdmissionRejected(JobError):
+    def __init__(self, code: JobAdmissionCode) -> None:
+        super().__init__(code.value)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class JobAdmissionPolicy:
+    max_active_per_user: int = 3
+    max_active_global: int = 32
+
+    def __post_init__(self) -> None:
+        if self.max_active_per_user <= 0:
+            raise ValueError("max_active_per_user must be greater than zero")
+        if self.max_active_global <= 0:
+            raise ValueError("max_active_global must be greater than zero")
+        if self.max_active_per_user > self.max_active_global:
+            raise ValueError("per-user active-job limit cannot exceed global limit")
 
 
 class InvalidTransition(JobError):

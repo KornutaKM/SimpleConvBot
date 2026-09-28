@@ -82,6 +82,9 @@ jobs:
       - name: Verify
         run: python scripts/verify.py
 
+      - name: Audit Python dependencies
+        run: python -m pip_audit --skip-editable
+
       - name: Integration
         run: python scripts/verify_integration.py
 
@@ -95,3 +98,7 @@ jobs:
         run: |
           docker run --rm simpleconvbot:ci ffmpeg -version
           docker run --rm simpleconvbot:ci ffprobe -version
+
+      - name: Verify hardened worker container profile
+        run: |
+          docker run --rm             --network none             --read-only             --cap-drop ALL             --security-opt no-new-privileges             --pids-limit 64             --memory 768m             --cpus 1.0             --tmpfs /app/var/jobs:rw,nosuid,nodev,noexec,size=134217728,uid=10001,gid=10001,mode=0700             -e TEMP_ROOT=/app/var/jobs             simpleconvbot:ci             python -m simpleconvbot.security_selftest

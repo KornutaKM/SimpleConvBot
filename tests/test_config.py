@@ -14,6 +14,10 @@ def test_settings_defaults() -> None:
     assert settings.redis_url == "redis://localhost:6379/0"
     assert settings.temp_root == Path("var/jobs")
     assert settings.temp_ttl_seconds == 3600
+    assert settings.workspace_max_bytes == 64 * 1024 * 1024
+    assert settings.update_rate_limit_per_minute == 60
+    assert settings.max_active_jobs_per_user == 3
+    assert settings.max_active_jobs_global == 32
 
 
 def test_settings_parse_values() -> None:
@@ -26,6 +30,10 @@ def test_settings_parse_values() -> None:
             "REDIS_URL": "redis://cache:6379/1",
             "TEMP_ROOT": "/tmp/simpleconvbot",
             "TEMP_TTL_SECONDS": "900",
+            "WORKSPACE_MAX_BYTES": "12345",
+            "UPDATE_RATE_LIMIT_PER_MINUTE": "12",
+            "MAX_ACTIVE_JOBS_PER_USER": "2",
+            "MAX_ACTIVE_JOBS_GLOBAL": "9",
         }
     )
 
@@ -36,6 +44,10 @@ def test_settings_parse_values() -> None:
     assert settings.redis_url == "redis://cache:6379/1"
     assert settings.temp_root == Path("/tmp/simpleconvbot")
     assert settings.temp_ttl_seconds == 900
+    assert settings.workspace_max_bytes == 12345
+    assert settings.update_rate_limit_per_minute == 12
+    assert settings.max_active_jobs_per_user == 2
+    assert settings.max_active_jobs_global == 9
 
 
 @pytest.mark.parametrize(
@@ -61,10 +73,20 @@ def test_provider_postgres_urls_use_asyncpg_driver(raw: str, expected: str) -> N
     assert settings.database_url == expected
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "TEMP_TTL_SECONDS",
+        "WORKSPACE_MAX_BYTES",
+        "UPDATE_RATE_LIMIT_PER_MINUTE",
+        "MAX_ACTIVE_JOBS_PER_USER",
+        "MAX_ACTIVE_JOBS_GLOBAL",
+    ],
+)
 @pytest.mark.parametrize("raw", ["0", "-1", "abc"])
-def test_temp_ttl_must_be_positive_integer(raw: str) -> None:
+def test_positive_security_limits_are_validated(name: str, raw: str) -> None:
     with pytest.raises(SettingsError):
-        Settings.from_mapping({"TEMP_TTL_SECONDS": raw})
+        Settings.from_mapping({name: raw})
 
 
 def test_environment_is_validated() -> None:
@@ -85,7 +107,16 @@ def test_runtime_accepts_complete_settings() -> None:
     settings.validate_runtime()
 
 
-def test_token_is_redacted_from_repr() -> None:
-    settings = Settings.from_mapping({"TELEGRAM_BOT_TOKEN": "super-secret-value"})
+def test_credentials_are_redacted_from_repr() -> None:
+    settings = Settings.from_mapping(
+        {
+            "TELEGRAM_BOT_TOKEN": "super-secret-token",
+            "DATABASE_URL": "postgresql://db-user:db-secret@db.internal/app",
+            "REDIS_URL": "redis://default:redis-secret@cache.internal:6379/0",
+        }
+    )
 
-    assert "super-secret-value" not in repr(settings)
+    rendered = repr(settings)
+    assert "super-secret-token" not in rendered
+    assert "db-secret" not in rendered
+    assert "redis-secret" not in rendered

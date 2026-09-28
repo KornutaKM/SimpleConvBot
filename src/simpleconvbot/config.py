@@ -26,9 +26,13 @@ class Settings:
         default="postgresql+asyncpg://simpleconvbot@localhost:5432/simpleconvbot",
         repr=False,
     )
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = field(default="redis://localhost:6379/0", repr=False)
     temp_root: Path = Path("var/jobs")
     temp_ttl_seconds: int = 3600
+    workspace_max_bytes: int = 64 * 1024 * 1024
+    update_rate_limit_per_minute: int = 60
+    max_active_jobs_per_user: int = 3
+    max_active_jobs_global: int = 32
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -44,6 +48,22 @@ class Settings:
         temp_ttl_seconds = _parse_positive_int(
             "TEMP_TTL_SECONDS",
             values.get("TEMP_TTL_SECONDS", "3600"),
+        )
+        workspace_max_bytes = _parse_positive_int(
+            "WORKSPACE_MAX_BYTES",
+            values.get("WORKSPACE_MAX_BYTES", str(64 * 1024 * 1024)),
+        )
+        update_rate_limit_per_minute = _parse_positive_int(
+            "UPDATE_RATE_LIMIT_PER_MINUTE",
+            values.get("UPDATE_RATE_LIMIT_PER_MINUTE", "60"),
+        )
+        max_active_jobs_per_user = _parse_positive_int(
+            "MAX_ACTIVE_JOBS_PER_USER",
+            values.get("MAX_ACTIVE_JOBS_PER_USER", "3"),
+        )
+        max_active_jobs_global = _parse_positive_int(
+            "MAX_ACTIVE_JOBS_GLOBAL",
+            values.get("MAX_ACTIVE_JOBS_GLOBAL", "32"),
         )
 
         database_url = _normalize_database_url(
@@ -61,6 +81,10 @@ class Settings:
             redis_url=values.get("REDIS_URL", "redis://localhost:6379/0").strip(),
             temp_root=Path(values.get("TEMP_ROOT", "var/jobs")).expanduser(),
             temp_ttl_seconds=temp_ttl_seconds,
+            workspace_max_bytes=workspace_max_bytes,
+            update_rate_limit_per_minute=update_rate_limit_per_minute,
+            max_active_jobs_per_user=max_active_jobs_per_user,
+            max_active_jobs_global=max_active_jobs_global,
         )
 
     def validate_runtime(self) -> None:
