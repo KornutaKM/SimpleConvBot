@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from PIL import Image
 import pytest
+from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
 from simpleconvbot.jobs import JobSnapshot, JobState
