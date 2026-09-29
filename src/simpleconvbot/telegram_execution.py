@@ -60,7 +60,11 @@ from simpleconvbot.telemetry import (
     emit_operation_telemetry,
     opaque_correlation_id,
 )
-from simpleconvbot.ui import operation_accepted_text, operation_duplicate_text, pdf_info_text
+from simpleconvbot.ui import (
+    operation_accepted_text,
+    operation_duplicate_text,
+    pdf_info_text,
+)
 
 LOGGER = logging.getLogger(__name__)
 INPUT_NAME = "input"
