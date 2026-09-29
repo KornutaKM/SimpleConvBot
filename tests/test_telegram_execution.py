@@ -11,7 +11,6 @@ from simpleconvbot.jobs import JobSnapshot, JobState
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition
 from simpleconvbot.storage import LocalTemporaryStorage
-from simpleconvbot.telemetry import OperationStage
 from simpleconvbot.telegram_execution import (
     TelegramImageExecutor,
     TelegramPdfExecutor,
@@ -21,6 +20,7 @@ from simpleconvbot.telegram_execution import (
     pdf_operation,
     video_operation,
 )
+from simpleconvbot.telemetry import OperationStage
 
 
 def test_callback_mappings_are_explicit_and_closed() -> None:
