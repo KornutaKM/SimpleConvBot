@@ -26,6 +26,7 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] real Telegram execution wiring for image/PDF/media operations
 - [x] real Telegram multi-file wiring for images-to-PDF and PDF merge
 - [x] RU/EN routing through gateway, sessions and queued delivery
+- [x] known oversized Telegram inputs fail before provider download with a stable RU/EN size-limit error
 
 ## Telegram end-to-end evidence still required
 
