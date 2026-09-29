@@ -106,7 +106,7 @@ class RedisRuntimeLease:
         *,
         interval_seconds: float | None = None,
     ) -> None:
-        interval = interval_seconds or max(1.0, self._ttl_seconds / 3)
+        interval = self._ttl_seconds / 3 if interval_seconds is None else interval_seconds
         if interval <= 0:
             raise ValueError("interval_seconds must be greater than zero")
         if interval >= self._ttl_seconds:
