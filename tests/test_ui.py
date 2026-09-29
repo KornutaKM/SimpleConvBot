@@ -115,15 +115,20 @@ def _button_text(markup: InlineKeyboardMarkup) -> set[str]:
 
 
 def test_english_ui_is_real_not_catalog_only() -> None:
-    assert "Send a file" in welcome_text(Locale.EN)
+    assert "Send a file, photo, video, or audio" in welcome_text(Locale.EN)
     assert "interface follows your Telegram language" in settings_text(Locale.EN)
     assert "What would you like to do?" in pdf_card("sample.pdf", 1024, Locale.EN)
-    assert "📎 Send a file" in _button_text(home_keyboard(Locale.EN))
+    assert "📎 How to send a file" in _button_text(home_keyboard(Locale.EN))
     assert "🧰 All tools" in _button_text(home_keyboard(Locale.EN))
     assert "← Back" in _button_text(audio_actions_keyboard(Locale.EN))
 
 
 def test_russian_remains_default_for_existing_clients() -> None:
-    assert "Отправь файл" in welcome_text(Locale.RU)
+    assert "Отправьте файл, фото, видео или аудио" in welcome_text(Locale.RU)
     assert "Что сделать?" in pdf_card("sample.pdf", 1024, Locale.RU)
-    assert "📎 Отправить файл" in _button_text(home_keyboard())
+    assert "📎 Как отправить файл" in _button_text(home_keyboard())
+
+
+def test_send_file_hint_is_explicit_about_telegram_attachment_control() -> None:
+    assert "скрепку Telegram" in send_file_hint(Locale.RU)
+    assert "file, photo, video, or audio" in send_file_hint(Locale.EN)
