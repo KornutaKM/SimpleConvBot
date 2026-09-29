@@ -31,4 +31,13 @@ Retention evidence contains aggregate counts only. It does not expose workspace 
 
 ## Scheduling
 
-This module does not start a scheduler or mutate the Railway runtime. The Telegram/deployment implementation may call the sweep from a bounded maintenance loop once that runtime code is merged and reviewed.
+The Telegram runtime performs one retention sweep during startup and then runs a bounded periodic maintenance loop.
+
+The effective private-alpha policy is configuration-driven:
+
+- `TEMP_TTL_SECONDS` controls when a job workspace becomes eligible for deletion.
+- `RETENTION_SWEEP_INTERVAL_SECONDS` controls how often the periodic sweep runs.
+- the runtime emits one privacy-safe `retention_policy` event at startup with those two values.
+- the evidence summarizer reports `max_cleanup_delay_seconds = ttl_seconds + sweep_interval_seconds` as the bounded worst-case scheduling delay for a continuously running process.
+
+The initial startup sweep can remove already-expired state earlier than that worst-case periodic bound. Cleanup events remain aggregate-only and record deleted counts plus stable failure classes; they never expose workspace or session identity.
