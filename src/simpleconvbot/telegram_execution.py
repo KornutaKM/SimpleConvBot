@@ -313,7 +313,11 @@ class TelegramDelivery(DeliveryPort):
                 await self._bot.send_document(
                     job.chat_id,
                     FSInputFile(output_ref),
-                    caption=operation_title(job.operation_id, locale) if index == 0 else None,
+                    caption=(
+                        operation_title(job.operation_id, locale)
+                        if index == 0
+                        else None
+                    ),
                 )
         except Exception as exc:
             _emit(
@@ -375,7 +379,9 @@ class TelegramExecutionGateway:
             user.language_code if user is not None else None
         )
         if user is None or attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
+            )
             return
 
         await _remember_locale(self._locale_store, user.id, current_locale)
