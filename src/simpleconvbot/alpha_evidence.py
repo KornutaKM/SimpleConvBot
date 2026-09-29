@@ -100,6 +100,8 @@ class _EvidenceAccumulator:
     cleanup_success: int = 0
     cleanup_failure: int = 0
     cleanup_deleted_total: int = 0
+    retention_policy_events: int = 0
+    latest_retention_policy: dict[str, int] | None = None
     latest_admin_diagnostic: dict[str, object] | None = None
 
     def consume(self, payload: dict[str, object]) -> None:
@@ -125,6 +127,21 @@ class _EvidenceAccumulator:
                 self.recovery_clean_summaries += 1
         elif event == "cleanup":
             self._consume_cleanup(payload)
+        elif event == "retention_policy":
+            ttl_seconds = _integer(payload.get("ttl_seconds"))
+            interval_seconds = _integer(payload.get("interval_seconds"))
+            if (
+                ttl_seconds is not None
+                and ttl_seconds > 0
+                and interval_seconds is not None
+                and interval_seconds > 0
+            ):
+                self.retention_policy_events += 1
+                self.latest_retention_policy = {
+                    "ttl_seconds": ttl_seconds,
+                    "sweep_interval_seconds": interval_seconds,
+                    "max_cleanup_delay_seconds": ttl_seconds + interval_seconds,
+                }
         elif event == "admin_diagnostic":
             self.latest_admin_diagnostic = _admin_summary(payload)
 
@@ -177,6 +194,10 @@ class _EvidenceAccumulator:
                 "success": self.cleanup_success,
                 "failure": self.cleanup_failure,
                 "deleted_total": self.cleanup_deleted_total,
+            },
+            "retention_policy": {
+                "events": self.retention_policy_events,
+                "latest": self.latest_retention_policy,
             },
             "latest_admin_diagnostic": self.latest_admin_diagnostic,
         }
