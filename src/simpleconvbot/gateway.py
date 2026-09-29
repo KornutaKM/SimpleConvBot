@@ -14,6 +14,7 @@ from aiogram.types import (
     Update,
 )
 
+from simpleconvbot.localization import Locale, resolve_locale
 from simpleconvbot.ports import UpdateReceiptStore
 from simpleconvbot.sessions import SessionKind
 from simpleconvbot.telegram_execution import (
@@ -26,39 +27,45 @@ from simpleconvbot.telegram_execution import (
 from simpleconvbot.telegram_sessions import TelegramCollectionGateway
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
-    AUDIO_CATEGORY_TEXT,
     CATEGORY_TITLES,
-    DOCUMENT_CATEGORY_TEXT,
     HOME_CALLBACK,
     IMAGE_ACTION_TITLES,
-    IMAGE_CATEGORY_TEXT,
     PDF_ACTION_TITLES,
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
-    SETTINGS_TEXT,
     TOOLS_CALLBACK,
-    TOOLS_TEXT,
     VIDEO_ACTION_TITLES,
-    VIDEO_CATEGORY_TEXT,
-    WELCOME_TEXT,
+    action_title,
     audio_actions_keyboard,
     audio_card,
     category_back_keyboard,
     category_placeholder_text,
+    category_text,
+    category_title,
     home_keyboard,
     image_actions_keyboard,
     image_back_keyboard,
     image_document_card,
+    message_unavailable_text,
     pdf_actions_keyboard,
     pdf_back_keyboard,
     pdf_card,
     photo_card,
     prototype_action_text,
+    send_file_hint,
+    session_unavailable_text,
+    setting_notice_text,
     settings_keyboard,
+    settings_text,
+    source_unavailable_text,
     tools_keyboard,
+    tools_text,
+    unknown_category_text,
+    unknown_operation_text,
     unsupported_document_card,
     video_actions_keyboard,
     video_card,
+    welcome_text,
 )
 
 Handler = Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]]
@@ -79,14 +86,24 @@ class UpdateDeduplicationMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+def _message_locale(message: Message) -> Locale:
+    user = message.from_user
+    return resolve_locale(user.language_code if user is not None else None)
+
+
+def _callback_locale(callback: CallbackQuery) -> Locale:
+    return resolve_locale(callback.from_user.language_code)
+
+
 async def _edit_callback_message(
     callback: CallbackQuery,
     text: str,
     keyboard: InlineKeyboardMarkup,
+    locale: Locale,
 ) -> None:
     message = callback.message
     if not isinstance(message, Message):
-        await callback.answer("Сообщение больше недоступно.", show_alert=True)
+        await callback.answer(message_unavailable_text(locale), show_alert=True)
         return
     await message.edit_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     await callback.answer()
@@ -97,13 +114,14 @@ async def _execute_callback(
     execution: TelegramExecutionGateway | None,
     operation_id: str | None,
 ) -> None:
+    locale = _callback_locale(callback)
     message = callback.message
     source = message.reply_to_message if isinstance(message, Message) else None
     if execution is None or not isinstance(source, Message) or operation_id is None:
-        await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
+        await callback.answer(source_unavailable_text(locale), show_alert=True)
         return
     await callback.answer()
-    await execution.start_operation(source, operation_id)
+    await execution.start_operation(source, operation_id, locale=locale)
 
 
 async def _start_collection_callback(
@@ -111,13 +129,14 @@ async def _start_collection_callback(
     collections: TelegramCollectionGateway | None,
     kind: SessionKind,
 ) -> None:
+    locale = _callback_locale(callback)
     message = callback.message
     source = message.reply_to_message if isinstance(message, Message) else None
     if collections is None or not isinstance(source, Message):
-        await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
+        await callback.answer(source_unavailable_text(locale), show_alert=True)
         return
     await callback.answer()
-    await collections.start(source, kind)
+    await collections.start(source, kind, locale=locale)
 
 
 def create_router(
@@ -128,95 +147,123 @@ def create_router(
 
     @router.message(CommandStart())
     async def start(message: Message) -> None:
+        locale = _message_locale(message)
         await message.answer(
-            WELCOME_TEXT,
-            reply_markup=home_keyboard(),
+            welcome_text(locale),
+            reply_markup=home_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
     @router.message(Command("tools"))
     async def tools_command(message: Message) -> None:
+        locale = _message_locale(message)
         await message.answer(
-            TOOLS_TEXT,
-            reply_markup=tools_keyboard(),
+            tools_text(locale),
+            reply_markup=tools_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
     @router.message(Command("settings"))
     async def settings_command(message: Message) -> None:
+        locale = _message_locale(message)
         await message.answer(
-            SETTINGS_TEXT,
-            reply_markup=settings_keyboard(),
+            settings_text(locale),
+            reply_markup=settings_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
     @router.callback_query(F.data == HOME_CALLBACK)
     async def home(callback: CallbackQuery) -> None:
-        await _edit_callback_message(callback, WELCOME_TEXT, home_keyboard())
+        locale = _callback_locale(callback)
+        await _edit_callback_message(
+            callback,
+            welcome_text(locale),
+            home_keyboard(locale),
+            locale,
+        )
 
     @router.callback_query(F.data == SEND_FILE_CALLBACK)
     async def send_file(callback: CallbackQuery) -> None:
-        await callback.answer(
-            "Нажмите скрепку Telegram рядом с полем сообщения и выберите файл.",
-            show_alert=True,
-        )
+        await callback.answer(send_file_hint(_callback_locale(callback)), show_alert=True)
 
     @router.callback_query(F.data == TOOLS_CALLBACK)
     async def tools(callback: CallbackQuery) -> None:
-        await _edit_callback_message(callback, TOOLS_TEXT, tools_keyboard())
+        locale = _callback_locale(callback)
+        await _edit_callback_message(
+            callback,
+            tools_text(locale),
+            tools_keyboard(locale),
+            locale,
+        )
 
     @router.callback_query(F.data == SETTINGS_CALLBACK)
     async def settings(callback: CallbackQuery) -> None:
-        await _edit_callback_message(callback, SETTINGS_TEXT, settings_keyboard())
+        locale = _callback_locale(callback)
+        await _edit_callback_message(
+            callback,
+            settings_text(locale),
+            settings_keyboard(locale),
+            locale,
+        )
 
     @router.callback_query(F.data.startswith("ui:setting:"))
     async def setting_placeholder(callback: CallbackQuery) -> None:
-        await callback.answer("Параметр пока работает как элемент UI-прототипа.")
+        await callback.answer(
+            setting_notice_text(_callback_locale(callback), callback.data),
+            show_alert=True,
+        )
 
     @router.callback_query(F.data.startswith("ui:cat:"))
     async def category(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
         callback_data = callback.data
         if callback_data is None:
-            await callback.answer("Неизвестная категория.", show_alert=True)
+            await callback.answer(unknown_category_text(locale), show_alert=True)
             return
 
-        if callback_data == "ui:cat:image":
+        text = category_text(callback_data, locale)
+        if callback_data == "ui:cat:image" and text is not None:
             await _edit_callback_message(
                 callback,
-                IMAGE_CATEGORY_TEXT,
-                image_actions_keyboard(),
+                text,
+                image_actions_keyboard(locale),
+                locale,
             )
             return
-        if callback_data == "ui:cat:document":
+        if callback_data == "ui:cat:document" and text is not None:
             await _edit_callback_message(
                 callback,
-                DOCUMENT_CATEGORY_TEXT,
-                pdf_actions_keyboard(),
+                text,
+                pdf_actions_keyboard(locale),
+                locale,
             )
             return
-        if callback_data == "ui:cat:audio":
+        if callback_data == "ui:cat:audio" and text is not None:
             await _edit_callback_message(
                 callback,
-                AUDIO_CATEGORY_TEXT,
-                audio_actions_keyboard(),
+                text,
+                audio_actions_keyboard(locale),
+                locale,
             )
             return
-        if callback_data == "ui:cat:video":
+        if callback_data == "ui:cat:video" and text is not None:
             await _edit_callback_message(
                 callback,
-                VIDEO_CATEGORY_TEXT,
-                video_actions_keyboard(),
+                text,
+                video_actions_keyboard(locale),
+                locale,
             )
             return
 
-        title = CATEGORY_TITLES.get(callback_data)
+        title = category_title(callback_data, locale)
         if title is None:
-            await callback.answer("Неизвестная категория.", show_alert=True)
+            await callback.answer(unknown_category_text(locale), show_alert=True)
             return
         await _edit_callback_message(
             callback,
-            category_placeholder_text(title),
-            category_back_keyboard(),
+            category_placeholder_text(title, locale),
+            category_back_keyboard(locale),
+            locale,
         )
 
     @router.callback_query(F.data == "ui:image:pdf")
@@ -256,40 +303,47 @@ def create_router(
     @router.callback_query(F.data.startswith("sess:"))
     async def collection_callback(callback: CallbackQuery) -> None:
         if collections is None:
-            await callback.answer("Сессия временно недоступна.", show_alert=True)
+            await callback.answer(
+                session_unavailable_text(_callback_locale(callback)),
+                show_alert=True,
+            )
             return
         await collections.handle_callback(callback)
 
     @router.callback_query(F.data.startswith("ui:image:"))
     async def image_action(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
         callback_data = callback.data
         if callback_data is None:
-            await callback.answer("Неизвестная операция.", show_alert=True)
+            await callback.answer(unknown_operation_text(locale), show_alert=True)
             return
-        title = IMAGE_ACTION_TITLES.get(callback_data)
-        if title is None:
-            await callback.answer("Неизвестная операция.", show_alert=True)
+        title = action_title(callback_data, locale)
+        if title is None or callback_data not in IMAGE_ACTION_TITLES:
+            await callback.answer(unknown_operation_text(locale), show_alert=True)
             return
         await _edit_callback_message(
             callback,
-            prototype_action_text(title),
-            image_back_keyboard(),
+            prototype_action_text(title, locale),
+            image_back_keyboard(locale),
+            locale,
         )
 
     @router.callback_query(F.data.startswith("ui:pdf:"))
     async def pdf_action(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
         callback_data = callback.data
         if callback_data is None:
-            await callback.answer("Неизвестная операция.", show_alert=True)
+            await callback.answer(unknown_operation_text(locale), show_alert=True)
             return
-        title = PDF_ACTION_TITLES.get(callback_data)
-        if title is None:
-            await callback.answer("Неизвестная операция.", show_alert=True)
+        title = action_title(callback_data, locale)
+        if title is None or callback_data not in PDF_ACTION_TITLES:
+            await callback.answer(unknown_operation_text(locale), show_alert=True)
             return
         await _edit_callback_message(
             callback,
-            prototype_action_text(title),
-            pdf_back_keyboard(),
+            prototype_action_text(title, locale),
+            pdf_back_keyboard(locale),
+            locale,
         )
 
     @router.message(F.photo)
@@ -299,10 +353,11 @@ def create_router(
         photos = message.photo
         if not photos:
             return
+        locale = _message_locale(message)
         photo = photos[-1]
         await message.reply(
-            photo_card(photo.width, photo.height, photo.file_size),
-            reply_markup=image_actions_keyboard(),
+            photo_card(photo.width, photo.height, photo.file_size, locale),
+            reply_markup=image_actions_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
@@ -313,9 +368,10 @@ def create_router(
         audio = message.audio
         if audio is None:
             return
+        locale = _message_locale(message)
         await message.reply(
-            audio_card(audio.file_name, audio.file_size),
-            reply_markup=audio_actions_keyboard(),
+            audio_card(audio.file_name, audio.file_size, locale),
+            reply_markup=audio_actions_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
@@ -326,9 +382,10 @@ def create_router(
         video = message.video
         if video is None:
             return
+        locale = _message_locale(message)
         await message.reply(
-            video_card(video.file_name, video.file_size),
-            reply_markup=video_actions_keyboard(),
+            video_card(video.file_name, video.file_size, locale),
+            reply_markup=video_actions_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
@@ -340,11 +397,12 @@ def create_router(
         if document is None:
             return
 
+        locale = _message_locale(message)
         mime_type = document.mime_type
         if mime_type == "application/pdf":
             await message.reply(
-                pdf_card(document.file_name, document.file_size),
-                reply_markup=pdf_actions_keyboard(),
+                pdf_card(document.file_name, document.file_size, locale),
+                reply_markup=pdf_actions_keyboard(locale),
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -355,24 +413,25 @@ def create_router(
                     document.file_name,
                     document.mime_type,
                     document.file_size,
+                    locale,
                 ),
-                reply_markup=image_actions_keyboard(),
+                reply_markup=image_actions_keyboard(locale),
                 parse_mode=ParseMode.HTML,
             )
             return
 
         if mime_type is not None and mime_type.startswith("audio/"):
             await message.reply(
-                audio_card(document.file_name, document.file_size),
-                reply_markup=audio_actions_keyboard(),
+                audio_card(document.file_name, document.file_size, locale),
+                reply_markup=audio_actions_keyboard(locale),
                 parse_mode=ParseMode.HTML,
             )
             return
 
         if mime_type is not None and mime_type.startswith("video/"):
             await message.reply(
-                video_card(document.file_name, document.file_size),
-                reply_markup=video_actions_keyboard(),
+                video_card(document.file_name, document.file_size, locale),
+                reply_markup=video_actions_keyboard(locale),
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -382,8 +441,9 @@ def create_router(
                 document.file_name,
                 document.mime_type,
                 document.file_size,
+                locale,
             ),
-            reply_markup=tools_keyboard(),
+            reply_markup=tools_keyboard(locale),
             parse_mode=ParseMode.HTML,
         )
 
