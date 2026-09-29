@@ -122,6 +122,21 @@ Requirements:
 
 The initial target is short-lived storage measured in minutes/hours, not days.
 
+## Runtime singleton
+
+The public polling runtime is singleton-controlled through a Redis lease.
+
+Requirements:
+
+- only the current lease owner may perform startup recovery, run the queue worker,
+  execute retention/diagnostics loops, or start Telegram polling;
+- lease acquisition waits for a bounded handoff interval during deployments;
+- renewal and release are owner-token checked;
+- a stale process cannot renew or delete a newer owner's lease;
+- lease loss fails closed by cancelling the owned runtime;
+- the app remains configured for one production replica; the lease is defense in
+  depth against deployment overlap and accidental duplicate instances.
+
 ## Privacy
 
 The service should retain only metadata needed for operation and product reliability.
@@ -148,8 +163,10 @@ Avoid durable storage of:
 
 A public privacy notice must accurately state retention behavior before public launch.
 The current public-MVP policy automatically reaps terminal job records and
-Telegram update receipts after seven days; active jobs are preserved. See
-`docs/PRIVACY.md` and `docs/RETENTION.md`.
+Telegram update receipts after seven days; active jobs are preserved. Bounded
+production recovery snapshots can temporarily retain older copies after live
+deletion and must be disclosed separately. See `docs/PRIVACY.md`,
+`docs/RETENTION.md`, and `docs/RAILWAY.md`.
 
 ## Logging
 
