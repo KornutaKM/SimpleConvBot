@@ -469,6 +469,20 @@ def pdf_card(filename: str | None, size: int | None, locale: Locale = Locale.RU)
     )
 
 
+def pdf_info_text(
+    page_count: int,
+    size: int,
+    version: str,
+    locale: Locale = Locale.RU,
+) -> str:
+    return (
+        f"📄 PDF\n"
+        f"{_pick(locale, 'Страниц', 'Pages')}: {page_count}\n"
+        f"{_pick(locale, 'Размер', 'Size')}: {format_file_size(size, locale)}\n"
+        f"{_pick(locale, 'Версия', 'Version')}: {escape(version)}"
+    )
+
+
 def audio_card(
     filename: str | None,
     size: int | None,

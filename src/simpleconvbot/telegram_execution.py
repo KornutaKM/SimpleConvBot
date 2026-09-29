@@ -37,7 +37,12 @@ from simpleconvbot.pdf_engine import (
     PdfEngineError,
     PdfErrorCode,
 )
-from simpleconvbot.ports import DeliveryPort, ExecutionResult, OperationExecutor
+from simpleconvbot.ports import (
+    DeliveryPort,
+    ExecutionResult,
+    LocalizedDeliveryText,
+    OperationExecutor,
+)
 from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.services import JobService, StartJobRequest
@@ -55,7 +60,11 @@ from simpleconvbot.telemetry import (
     emit_operation_telemetry,
     opaque_correlation_id,
 )
-from simpleconvbot.ui import operation_accepted_text, operation_duplicate_text
+from simpleconvbot.ui import (
+    operation_accepted_text,
+    operation_duplicate_text,
+    pdf_info_text,
+)
 
 LOGGER = logging.getLogger(__name__)
 INPUT_NAME = "input"
@@ -109,6 +118,7 @@ def pdf_operation(callback_data: str | None) -> str | None:
         "ui:pdf:jpg": "pdf.to_jpeg_images",
         "ui:pdf:png": "pdf.to_images",
         "ui:pdf:split": "pdf.extract_pages",
+        "ui:pdf:info": "pdf.info",
     }.get(callback_data)
 
 
@@ -214,6 +224,8 @@ class TelegramPdfExecutor(OperationExecutor):
                 result = await self._merge_pdfs(job, workspace)
             elif operation.operation_id == "pdf.extract_pages":
                 result = await self._split_pdf(job)
+            elif operation.operation_id == "pdf.info":
+                result = await self._inspect_pdf(job)
             else:
                 raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
             await self._storage.enforce_quota(job.job_id)
@@ -251,6 +263,26 @@ class TelegramPdfExecutor(OperationExecutor):
         return ExecutionResult(
             output_ref=refs[0],
             additional_output_refs=refs[1:],
+        )
+
+    async def _inspect_pdf(self, job: JobSnapshot) -> ExecutionResult:
+        source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
+        info = await to_thread(self._engine.inspect, source)
+        return ExecutionResult(
+            delivery_text=LocalizedDeliveryText(
+                ru=pdf_info_text(
+                    info.page_count,
+                    info.byte_size,
+                    info.version,
+                    Locale.RU,
+                ),
+                en=pdf_info_text(
+                    info.page_count,
+                    info.byte_size,
+                    info.version,
+                    Locale.EN,
+                ),
+            ),
         )
 
     async def _split_pdf(self, job: JobSnapshot) -> ExecutionResult:
@@ -395,12 +427,16 @@ class TelegramDelivery(DeliveryPort):
         started = monotonic()
         locale = await _stored_locale(self._locale_store, job.user_id)
         try:
-            for index, output_ref in enumerate(result.output_refs):
-                await self._bot.send_document(
-                    job.chat_id,
-                    FSInputFile(output_ref),
-                    caption=(operation_title(job.operation_id, locale) if index == 0 else None),
-                )
+            if result.delivery_text is not None:
+                text = result.delivery_text.ru if locale is Locale.RU else result.delivery_text.en
+                await self._bot.send_message(job.chat_id, text)
+            else:
+                for index, output_ref in enumerate(result.output_refs):
+                    await self._bot.send_document(
+                        job.chat_id,
+                        FSInputFile(output_ref),
+                        caption=(operation_title(job.operation_id, locale) if index == 0 else None),
+                    )
         except Exception as exc:
             _emit(
                 job,

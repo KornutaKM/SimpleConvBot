@@ -10,12 +10,33 @@ from simpleconvbot.operations import OperationDefinition
 
 
 @dataclass(frozen=True, slots=True)
+class LocalizedDeliveryText:
+    ru: str
+    en: str
+
+    def __post_init__(self) -> None:
+        if not self.ru.strip() or not self.en.strip():
+            raise ValueError("localized delivery text must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionResult:
-    output_ref: str
+    output_ref: str = ""
     additional_output_refs: tuple[str, ...] = ()
+    delivery_text: LocalizedDeliveryText | None = None
+
+    def __post_init__(self) -> None:
+        has_output = bool(self.output_ref)
+        has_text = self.delivery_text is not None
+        if has_output == has_text:
+            raise ValueError("execution result must contain either files or delivery text")
+        if not has_output and self.additional_output_refs:
+            raise ValueError("additional outputs require a primary output")
 
     @property
     def output_refs(self) -> tuple[str, ...]:
+        if not self.output_ref:
+            return ()
         return (self.output_ref, *self.additional_output_refs)
 
 
