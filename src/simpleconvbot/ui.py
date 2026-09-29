@@ -227,18 +227,6 @@ def tools_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                 _button(titles["ui:cat:audio"], "ui:cat:audio"),
                 _button(titles["ui:cat:document"], "ui:cat:document"),
             ],
-            [
-                _button(titles["ui:cat:archive"], "ui:cat:archive"),
-                _button(titles["ui:cat:data"], "ui:cat:data"),
-            ],
-            [
-                _button(titles["ui:cat:units"], "ui:cat:units"),
-                _button(titles["ui:cat:qr"], "ui:cat:qr"),
-            ],
-            [
-                _button(titles["ui:cat:text"], "ui:cat:text"),
-                _button(titles["ui:cat:utils"], "ui:cat:utils"),
-            ],
             [_button(_pick(locale, "← Назад", "← Back"), HOME_CALLBACK)],
         ]
     )
@@ -278,22 +266,13 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                 _button("WebP", "ui:image:webp"),
                 _button("PDF", "ui:image:pdf"),
             ],
-            [
-                _button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress"),
-                _button(f"📐 {titles['ui:image:resize']}", "ui:image:resize"),
-            ],
-            [
-                _button(f"✂️ {titles['ui:image:crop']}", "ui:image:crop"),
-                _button("🧹 EXIF", "ui:image:exif"),
-            ],
-            [_button(f"••• {titles['ui:image:more']}", "ui:image:more")],
+            [_button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress")],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )
 
 
 def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
-    titles = PDF_ACTION_TITLES if locale is Locale.RU else _PDF_ACTION_EN
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_button("🖼 → JPG", "ui:pdf:jpg"), _button("🖼 → PNG", "ui:pdf:png")],
@@ -307,14 +286,7 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                     "ui:pdf:merge",
                 ),
             ],
-            [
-                _button(
-                    _pick(locale, "🗜 Сжать", "🗜 Compress"),
-                    "ui:pdf:compress",
-                ),
-                _button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info"),
-            ],
-            [_button(f"••• {titles['ui:pdf:more']}", "ui:pdf:more")],
+            [_button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info")],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )
