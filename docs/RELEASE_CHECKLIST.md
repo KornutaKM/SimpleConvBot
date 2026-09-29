@@ -20,10 +20,8 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 
 ## Privacy/retention decision
 
-- [ ] Confirm the public policy for age-based deletion of PostgreSQL completed
-  job rows and Telegram update receipts. The current MVP does not automatically
-  expire those rows. Either accept and publish that behavior explicitly or add
-  a bounded metadata-retention implementation before final approval.
+- [x] PostgreSQL terminal job rows and Telegram update receipts have a bounded
+  seven-day age-based retention policy; active jobs are preserved.
 - [ ] Confirm the selected production backup retention does not capture temporary
   workspaces and matches `docs/PRIVACY.md`.
 
