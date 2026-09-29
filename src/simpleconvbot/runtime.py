@@ -12,8 +12,8 @@ from simpleconvbot.gateway import create_dispatcher
 from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobAdmissionPolicy
 from simpleconvbot.maintenance import RetentionSweepResult, RetentionSweepService
-from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.media_operations import MEDIA_OPERATIONS
+from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationRegistry
 from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.postgres import (
