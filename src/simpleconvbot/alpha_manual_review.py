@@ -216,11 +216,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     review = load_review(args.input)
+    current_commit = current_git_commit()
     if args.command == "mark":
+        if review["commit_sha"] != current_commit:
+            raise ValueError("manual review commit does not match current git HEAD")
         mark_review(review, locale=args.locale, check_id=args.check, status=args.status)
         save_review(args.input, review)
 
-    summary = review_summary(review, expected_commit=current_git_commit())
+    summary = review_summary(review, expected_commit=current_commit)
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0
