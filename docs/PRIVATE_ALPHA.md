@@ -112,6 +112,9 @@ Record aggregate operational evidence only:
 - duration
 - cleanup outcome
 - expected vs actual user-visible result
+- collection validation `count` as privacy-safe multi-file cardinality evidence
+- `update_deduplicated` events as duplicate-update suppression evidence
+- `recovery_summary` events as aggregate startup-recovery evidence
 
 Do not record original filenames, Telegram file paths, user/chat IDs, provider URLs, secrets, or message contents.
 

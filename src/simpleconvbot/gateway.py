@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -25,6 +26,12 @@ from simpleconvbot.telegram_execution import (
     video_operation,
 )
 from simpleconvbot.telegram_sessions import TelegramCollectionGateway
+from simpleconvbot.telemetry import (
+    OperationOutcome,
+    TelemetryEvent,
+    TelemetryEventType,
+    emit_telemetry,
+)
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
     HOME_CALLBACK,
@@ -67,6 +74,8 @@ from simpleconvbot.ui import (
     welcome_text,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 Handler = Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]]
 
 
@@ -81,6 +90,14 @@ class UpdateDeduplicationMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         if isinstance(event, Update) and not await self._receipts.claim(event.update_id):
+            emit_telemetry(
+                LOGGER,
+                TelemetryEvent.now(
+                    TelemetryEventType.UPDATE_DEDUPLICATED,
+                    outcome=OperationOutcome.SUCCESS,
+                    count=1,
+                ),
+            )
             return None
         return await handler(event, data)
 

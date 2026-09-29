@@ -45,6 +45,8 @@ class TelemetryEventType(StrEnum):
     CLEANUP = "cleanup"
     ADMIN_DIAGNOSTIC = "admin_diagnostic"
     RECOVERY = "recovery"
+    RECOVERY_SUMMARY = "recovery_summary"
+    UPDATE_DEDUPLICATED = "update_deduplicated"
 
 
 @dataclass(frozen=True, slots=True)
