@@ -153,6 +153,10 @@ def emit_operation_telemetry(
         or event.duration_ms is None
     ):
         raise ValueError("operation telemetry requires operation_id, stage, outcome, and duration")
+    if event.outcome is OperationOutcome.FAILURE and event.error_code is None:
+        raise ValueError("failed operation telemetry requires error_code")
+    if event.outcome is OperationOutcome.SUCCESS and event.error_code is not None:
+        raise ValueError("successful operation telemetry must not include error_code")
     if metrics is not None:
         metrics.record_operation(
             operation_id=event.operation_id,
