@@ -51,6 +51,56 @@ Do not mark these complete from engine/unit tests alone.
 - [ ] Russian UX covers all enabled operations and failures
 - [ ] English UX covers all enabled operations and failures
 
+
+### Bound RU/EN manual review
+
+Machine telemetry cannot prove that every enabled user-visible path is understandable in both
+languages. Record that part separately in a local JSON file bound to the exact git revision and
+runtime identity.
+
+Initialize a review after the local runtime has been rebuilt:
+
+```powershell
+$imageId = docker inspect simpleconvbot-app-1 --format '{{.Image}}'
+python scripts/alpha_review.py init --output .alpha-review.json --execution-mode compose --runtime-id $imageId
+```
+
+The review contains these fixed checks for each locale:
+
+- `home_and_tools_navigation`
+- `image_actions`
+- `pdf_actions`
+- `audio_actions`
+- `video_actions`
+- `images_to_pdf_collection`
+- `pdf_merge_collection`
+- `unsupported_input_error`
+- `oversized_input_error`
+- `generic_failure_error`
+- `settings_and_back_navigation`
+
+Mark only what was actually observed. Example:
+
+```powershell
+python scripts/alpha_review.py mark --input .alpha-review.json --locale ru --check image_actions --status pass
+```
+
+After a complete locale review, `--check all --status pass` is allowed as an explicit human
+attestation that every fixed check above was exercised for that locale. The CLI refuses to mutate
+a review whose commit no longer matches the current `git HEAD`.
+
+Combine manual and machine evidence:
+
+```powershell
+docker compose logs --since=30m app > alpha-runtime.log
+python scripts/alpha_evidence.py --input alpha-runtime.log --manual-review .alpha-review.json --require-all-gates
+$LASTEXITCODE
+```
+
+Exit code `0` means both machine-verifiable gates and the commit-bound RU/EN manual review are
+complete. Exit code `2` means at least one gate remains pending. Keep `.alpha-review.json` and
+raw runtime logs local; do not commit them.
+
 ## Representative alpha corpus
 
 The private alpha should keep a local/non-repository corpus unless redistribution rights are explicit. For each supported family, record only the fixture class and expected result in test evidence; do not upload user files to GitHub.
