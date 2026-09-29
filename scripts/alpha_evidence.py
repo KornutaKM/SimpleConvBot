@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from simpleconvbot.alpha_evidence import main
 
 
