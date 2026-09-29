@@ -17,6 +17,8 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 - [x] Provider-neutral production, monitoring, smoke, and rollback runbook
   exists.
 - [x] `/help` is part of the runtime Telegram command set.
+- [x] Canonical fallback/RU Telegram profile copy and an explicit dry-run/apply
+  procedure exist in `docs/BOT_PROFILE.md`.
 - [x] First public hosting path selected: Railway; provider-specific deployment
   and rollback runbook exists in `docs/RAILWAY.md`.
 - [x] Redis-backed singleton runtime lease prevents concurrent owned runtime work
