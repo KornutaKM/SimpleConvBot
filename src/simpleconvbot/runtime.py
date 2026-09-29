@@ -31,11 +31,11 @@ from simpleconvbot.postgres import (
     make_engine,
     make_session_factory,
 )
+from simpleconvbot.recovery import StartupRecoveryService
 from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
-from simpleconvbot.recovery import StartupRecoveryService
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
 from simpleconvbot.sessions import SessionPolicy
 from simpleconvbot.storage import LocalTemporaryStorage
