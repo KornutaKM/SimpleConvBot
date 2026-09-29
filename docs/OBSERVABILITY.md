@@ -1,8 +1,8 @@
-# Private-alpha observability contract
+# Observability contract
 
-ALPHA-001 requires production evidence without turning logs or metrics into a second store of user data.
-
-This slice adds observability primitives only. It does not change Telegram handlers, polling runtime, Railway configuration, Dockerfile, or conversion execution wiring.
+SimpleConvBot records production evidence without turning logs or metrics into a
+second store of user data. ALPHA-001 validated the runtime telemetry paths; the
+same privacy-safe contract is used for RELEASE-001 production monitoring.
 
 ## Structured events
 
@@ -85,6 +85,18 @@ Recommended mapping:
 
 Only stable engine/control-plane error codes should enter telemetry. Raw exception text, source filenames, Telegram file paths and provider URLs stay out of routine logs.
 
-## Alpha exit evidence
+## Production alerting
 
-This slice does not complete ALPHA-001 by itself. The remaining evidence requires real Telegram workflows to call these primitives and representative files to exercise the deployed path.
+The selected hosting/monitoring provider must make runtime liveness, dependency
+health, restart loops, cleanup failures, and stable operation failure classes
+actionable without adding user/file identity to alert labels.
+
+The provider-neutral alert conditions and release smoke procedure are defined
+in `docs/PRODUCTION.md`.
+
+## Validation status
+
+ALPHA-001 completed real Telegram evidence for validation, queue, worker,
+upload, cleanup, recovery, duplicate-update suppression, retention, and RU/EN
+manual UX. RELEASE-001 must still observe the exact deployed production
+revision rather than treating historical alpha evidence as production health.
