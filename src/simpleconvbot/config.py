@@ -55,9 +55,7 @@ class Settings:
             values.get("RETENTION_SWEEP_INTERVAL_SECONDS", "60"),
         )
         if retention_sweep_interval_seconds > temp_ttl_seconds:
-            raise SettingsError(
-                "RETENTION_SWEEP_INTERVAL_SECONDS must not exceed TEMP_TTL_SECONDS"
-            )
+            raise SettingsError("RETENTION_SWEEP_INTERVAL_SECONDS must not exceed TEMP_TTL_SECONDS")
         workspace_max_bytes = _parse_positive_int(
             "WORKSPACE_MAX_BYTES",
             values.get("WORKSPACE_MAX_BYTES", str(64 * 1024 * 1024)),
