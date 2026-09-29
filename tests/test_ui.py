@@ -5,10 +5,7 @@ from aiogram.types import InlineKeyboardMarkup
 from simpleconvbot.localization import Locale
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
-    CATEGORY_TITLES,
     HOME_CALLBACK,
-    IMAGE_ACTION_TITLES,
-    PDF_ACTION_TITLES,
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
     TOOLS_CALLBACK,
@@ -47,26 +44,43 @@ def test_home_keyboard_exposes_primary_navigation() -> None:
     }
 
 
-def test_tools_keyboard_exposes_all_categories_and_back() -> None:
+def test_tools_keyboard_exposes_only_enabled_alpha_categories_and_back() -> None:
     callback_data = _callback_data(tools_keyboard())
 
-    assert set(CATEGORY_TITLES) <= callback_data
-    assert HOME_CALLBACK in callback_data
+    assert callback_data == {
+        "ui:cat:image",
+        "ui:cat:video",
+        "ui:cat:audio",
+        "ui:cat:document",
+        HOME_CALLBACK,
+    }
 
 
-def test_image_action_keyboard_uses_fixed_callback_identities() -> None:
+def test_image_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
     callback_data = _callback_data(image_actions_keyboard())
 
-    assert set(IMAGE_ACTION_TITLES) <= callback_data
-    assert TOOLS_CALLBACK in callback_data
+    assert callback_data == {
+        "ui:image:jpg",
+        "ui:image:png",
+        "ui:image:webp",
+        "ui:image:pdf",
+        "ui:image:compress",
+        TOOLS_CALLBACK,
+    }
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
-def test_pdf_action_keyboard_uses_fixed_callback_identities() -> None:
+def test_pdf_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
     callback_data = _callback_data(pdf_actions_keyboard())
 
-    assert set(PDF_ACTION_TITLES) <= callback_data
-    assert TOOLS_CALLBACK in callback_data
+    assert callback_data == {
+        "ui:pdf:jpg",
+        "ui:pdf:png",
+        "ui:pdf:split",
+        "ui:pdf:merge",
+        "ui:pdf:info",
+        TOOLS_CALLBACK,
+    }
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
