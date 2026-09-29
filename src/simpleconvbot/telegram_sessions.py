@@ -118,6 +118,7 @@ class TelegramCollectionGateway:
             await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
             return
 
+        created_session_id: UUID | None = None
         try:
             byte_size = await self._resolved_size(attachment)
             created = await self._repository.create(
@@ -125,6 +126,7 @@ class TelegramCollectionGateway:
                 owner_user_id=user.id,
                 chat_id=message.chat.id,
             )
+            created_session_id = created.session_id
             snapshot, _ = await self._repository.add_file(
                 created.session_id,
                 owner_user_id=user.id,
@@ -142,6 +144,12 @@ class TelegramCollectionGateway:
                 ttl_seconds=_remaining_ttl(snapshot),
             )
         except Exception as exc:
+            if created_session_id is not None:
+                await self._cancel_collecting_best_effort(
+                    created_session_id,
+                    user_id=user.id,
+                    chat_id=message.chat.id,
+                )
             await message.answer(error_text(_session_error_code(exc), Locale.RU))
             return
 
@@ -382,6 +390,22 @@ class TelegramCollectionGateway:
         if remote.file_size is None or remote.file_size <= 0:
             raise UserFacingError(UserErrorCode.TELEGRAM_FILE_SIZE_UNKNOWN.value)
         return remote.file_size
+
+    async def _cancel_collecting_best_effort(
+        self,
+        session_id: UUID,
+        *,
+        user_id: int,
+        chat_id: int,
+    ) -> None:
+        try:
+            await self._repository.cancel(
+                session_id,
+                owner_user_id=user_id,
+                chat_id=chat_id,
+            )
+        except Exception:
+            LOGGER.exception("abandoned collection session cleanup failed")
 
     async def _delete_finalized_best_effort(
         self,
