@@ -42,6 +42,7 @@ from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import (
     TelegramFile,
     UserFacingError,
+    enforce_telegram_cloud_download_limit,
     message_file,
     telegram_download_error_code,
 )
@@ -431,6 +432,7 @@ class TelegramCollectionGateway:
             for index, item in enumerate(plan.files, start=1):
                 remote = await self._bot.get_file(item.object_ref)
                 remote_size = remote.file_size
+                enforce_telegram_cloud_download_limit(remote_size)
                 if remote_size is not None and remote_size != item.byte_size:
                     raise UserFacingError(UserErrorCode.SESSION_IDEMPOTENCY_CONFLICT.value)
                 destination = await self._storage.workspace_file(
@@ -461,10 +463,12 @@ class TelegramCollectionGateway:
 
     async def _resolved_size(self, attachment: TelegramFile) -> int:
         if attachment.file_size is not None and attachment.file_size > 0:
+            enforce_telegram_cloud_download_limit(attachment.file_size)
             return attachment.file_size
         remote = await self._bot.get_file(attachment.file_id)
         if remote.file_size is None or remote.file_size <= 0:
             raise UserFacingError(UserErrorCode.TELEGRAM_FILE_SIZE_UNKNOWN.value)
+        enforce_telegram_cloud_download_limit(remote.file_size)
         return remote.file_size
 
     async def _cancel_collecting_best_effort(
