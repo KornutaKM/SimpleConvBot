@@ -452,6 +452,15 @@ def create_router(
             )
             return
 
+        emit_telemetry(
+            LOGGER,
+            TelemetryEvent.now(
+                TelemetryEventType.INPUT_REJECTED,
+                outcome=OperationOutcome.FAILURE,
+                error_code="unsupported_document",
+                count=1,
+            ),
+        )
         await message.answer(
             unsupported_document_card(
                 document.file_name,
