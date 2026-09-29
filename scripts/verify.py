@@ -12,6 +12,7 @@ def run(args: Sequence[str]) -> None:
 
 
 def main() -> int:
+    run(("ruff", "format", "--diff", "src/simpleconvbot/recovery.py"))
     run(("ruff", "format", "--check", "."))
     run(("ruff", "check", "."))
     run(("mypy", "src", "tests"))
