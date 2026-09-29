@@ -172,7 +172,7 @@ async def _run_retention(
     retention: RetentionSweepService,
     stop: Event,
     *,
-    interval_seconds: int,
+    interval_seconds: float,
 ) -> None:
     if interval_seconds <= 0:
         raise ValueError("interval_seconds must be greater than zero")
