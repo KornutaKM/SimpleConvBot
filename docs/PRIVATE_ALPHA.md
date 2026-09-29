@@ -34,15 +34,15 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 
 Do not mark these complete from engine/unit tests alone.
 
-- [ ] real Telegram image upload -> validation -> conversion -> result upload -> cleanup
-- [ ] real Telegram PDF upload -> operation -> result upload -> cleanup
-- [ ] real Telegram media upload -> operation -> result upload -> cleanup
+- [x] real Telegram image upload -> validation -> conversion -> result upload -> cleanup
+- [x] real Telegram PDF upload -> operation -> result upload -> cleanup
+- [x] real Telegram media upload -> operation -> result upload -> cleanup
 - [ ] multi-message images-to-PDF collection -> final result
 - [ ] multi-message PDF merge collection -> final result
 - [ ] duplicate callback/update does not cause duplicate conversion
 - [ ] oversized/unsupported Telegram files receive useful bounded errors
 - [ ] process/app restart does not invent success or lose attributable failure state
-- [ ] routine logs contain no original filename, Telegram file path, user/chat identity, token, DB URL, or Redis URL
+- [x] routine logs contain no original filename, Telegram file path, user/chat identity, token, DB URL, or Redis URL
 - [ ] cleanup occurs after success and failure within the documented retention window
 - [ ] Russian UX covers all enabled operations and failures
 - [ ] English UX covers all enabled operations and failures
