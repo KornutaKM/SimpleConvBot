@@ -29,6 +29,7 @@ class Settings:
     redis_url: str = field(default="redis://localhost:6379/0", repr=False)
     temp_root: Path = Path("var/jobs")
     temp_ttl_seconds: int = 3600
+    metadata_ttl_seconds: int = 7 * 24 * 60 * 60
     retention_sweep_interval_seconds: int = 60
     diagnostics_interval_seconds: int = 300
     workspace_max_bytes: int = 64 * 1024 * 1024
@@ -51,12 +52,20 @@ class Settings:
             "TEMP_TTL_SECONDS",
             values.get("TEMP_TTL_SECONDS", "3600"),
         )
+        metadata_ttl_seconds = _parse_positive_int(
+            "METADATA_TTL_SECONDS",
+            values.get("METADATA_TTL_SECONDS", str(7 * 24 * 60 * 60)),
+        )
         retention_sweep_interval_seconds = _parse_positive_int(
             "RETENTION_SWEEP_INTERVAL_SECONDS",
             values.get("RETENTION_SWEEP_INTERVAL_SECONDS", "60"),
         )
         if retention_sweep_interval_seconds > temp_ttl_seconds:
             raise SettingsError("RETENTION_SWEEP_INTERVAL_SECONDS must not exceed TEMP_TTL_SECONDS")
+        if retention_sweep_interval_seconds > metadata_ttl_seconds:
+            raise SettingsError(
+                "RETENTION_SWEEP_INTERVAL_SECONDS must not exceed METADATA_TTL_SECONDS"
+            )
         diagnostics_interval_seconds = _parse_positive_int(
             "DIAGNOSTICS_INTERVAL_SECONDS",
             values.get("DIAGNOSTICS_INTERVAL_SECONDS", "300"),
@@ -93,6 +102,7 @@ class Settings:
             redis_url=values.get("REDIS_URL", "redis://localhost:6379/0").strip(),
             temp_root=Path(values.get("TEMP_ROOT", "var/jobs")).expanduser(),
             temp_ttl_seconds=temp_ttl_seconds,
+            metadata_ttl_seconds=metadata_ttl_seconds,
             retention_sweep_interval_seconds=retention_sweep_interval_seconds,
             diagnostics_interval_seconds=diagnostics_interval_seconds,
             workspace_max_bytes=workspace_max_bytes,

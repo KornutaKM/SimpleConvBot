@@ -29,6 +29,25 @@ class FakeWorkspaceReaper:
         return self.report
 
 
+class FakeMetadataReaper:
+    def __init__(self, deleted: int = 0, error: Exception | None = None) -> None:
+        self.deleted = deleted
+        self.error = error
+        self.calls: list[tuple[int, datetime]] = []
+
+    async def reap_expired(
+        self,
+        *,
+        ttl_seconds: int,
+        now: datetime | None = None,
+    ) -> int:
+        assert now is not None
+        self.calls.append((ttl_seconds, now))
+        if self.error is not None:
+            raise self.error
+        return self.deleted
+
+
 class FakeSessionReaper:
     def __init__(self, deleted: int = 0, error: Exception | None = None) -> None:
         self.deleted = deleted
@@ -56,12 +75,15 @@ def test_retention_sweep_aggregates_cleanup_evidence() -> None:
             )
         )
         session_reaper = FakeSessionReaper(deleted=3)
+        metadata_reaper = FakeMetadataReaper(deleted=4)
         metrics = MetricsRegistry()
         service = RetentionSweepService(
             workspace_reaper=workspace_reaper,
             session_reaper=session_reaper,
             metrics=metrics,
             workspace_ttl_seconds=3600,
+            metadata_reaper=metadata_reaper,
+            metadata_ttl_seconds=604800,
         )
 
         result = await service.sweep(now=now)
@@ -70,13 +92,15 @@ def test_retention_sweep_aggregates_cleanup_evidence() -> None:
         assert result.workspaces_deleted == 2
         assert result.workspaces_failed == 1
         assert result.sessions_deleted == 3
-        assert result.deleted_total == 5
+        assert result.metadata_deleted == 4
+        assert result.deleted_total == 9
         assert workspace_reaper.calls == [(3600, now)]
         assert session_reaper.calls == [now]
+        assert metadata_reaper.calls == [(604800, now)]
 
         cleanup = metrics.snapshot().cleanup
         assert cleanup.attempts == 1
-        assert cleanup.deleted == 5
+        assert cleanup.deleted == 9
         assert cleanup.failed == 1
 
     asyncio.run(scenario())
@@ -132,3 +156,26 @@ def test_retention_ttl_must_be_positive() -> None:
             metrics=MetricsRegistry(),
             workspace_ttl_seconds=0,
         )
+
+
+def test_metadata_reaper_failure_is_visible_and_propagated() -> None:
+    async def scenario() -> None:
+        metrics = MetricsRegistry()
+        service = RetentionSweepService(
+            workspace_reaper=FakeWorkspaceReaper(CleanupReport(1, 1, 0, 0, 0)),
+            session_reaper=FakeSessionReaper(deleted=1),
+            metrics=metrics,
+            workspace_ttl_seconds=60,
+            metadata_reaper=FakeMetadataReaper(error=RuntimeError("metadata failure")),
+            metadata_ttl_seconds=604800,
+        )
+
+        with pytest.raises(RuntimeError, match="metadata failure"):
+            await service.sweep()
+
+        cleanup = metrics.snapshot().cleanup
+        assert cleanup.attempts == 1
+        assert cleanup.deleted == 2
+        assert cleanup.failed == 1
+
+    asyncio.run(scenario())

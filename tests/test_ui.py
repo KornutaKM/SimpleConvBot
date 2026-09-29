@@ -176,6 +176,8 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "up to 20 files" in en
     assert "до 40 МБ" in ru
     assert "up to 40 MB" in en
+    assert "одного входного файла — до 20 МБ" in ru
+    assert "each input file is limited to 20 MB" in en
     assert "через 1 час" in ru
     assert "after 1 hour" in en
     assert "скрепку Telegram" in ru

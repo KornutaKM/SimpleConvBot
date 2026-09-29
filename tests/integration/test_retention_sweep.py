@@ -8,10 +8,14 @@ from uuid import uuid4
 
 import pytest
 
+from simpleconvbot.jobs import CreateJob, JobNotFound, JobState
 from simpleconvbot.maintenance import RetentionSweepService
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.postgres import (
     PostgresCollectionSessionRepository,
+    PostgresJobRepository,
+    PostgresOperationalMetadataReaper,
+    PostgresUpdateReceiptStore,
     create_schema,
     drop_schema,
     make_engine,
@@ -100,5 +104,64 @@ async def _retention_sweep_removes_only_expired_alpha_state(tmp_path: Path) -> N
         assert cleanup.attempts == 1
         assert cleanup.deleted == 2
         assert cleanup.failed == 0
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+def test_operational_metadata_reaper_deletes_only_expired_terminal_state() -> None:
+    asyncio.run(_operational_metadata_reaper_deletes_only_expired_terminal_state())
+
+
+async def _operational_metadata_reaper_deletes_only_expired_terminal_state() -> None:
+    engine = make_engine(os.environ["DATABASE_URL"])
+    sessions = make_session_factory(engine)
+    jobs = PostgresJobRepository(sessions)
+    receipts = PostgresUpdateReceiptStore(sessions)
+    reaper = PostgresOperationalMetadataReaper(sessions)
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+
+        terminal, created = await jobs.create_or_get(
+            CreateJob(
+                idempotency_key="retention-terminal",
+                operation_id="image.to_png",
+                operation_version=1,
+                user_id=101,
+                chat_id=201,
+                source_message_id=301,
+            )
+        )
+        assert created is True
+        await jobs.transition(terminal.job_id, JobState.RECEIVED, JobState.FAILED)
+
+        active, created = await jobs.create_or_get(
+            CreateJob(
+                idempotency_key="retention-active",
+                operation_id="image.to_png",
+                operation_version=1,
+                user_id=102,
+                chat_id=202,
+                source_message_id=302,
+            )
+        )
+        assert created is True
+        assert await receipts.claim(987654321) is True
+
+        deleted = await reaper.reap_expired(
+            ttl_seconds=7 * 24 * 60 * 60,
+            now=datetime.now(UTC) + timedelta(days=8),
+        )
+
+        assert deleted == 2
+        with pytest.raises(JobNotFound):
+            await jobs.get(terminal.job_id)
+        preserved = await jobs.get(active.job_id)
+        assert preserved.state is JobState.RECEIVED
+
+        # The expired receipt was removed and can be claimed again.
+        assert await receipts.claim(987654321) is True
     finally:
         await engine.dispose()

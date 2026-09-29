@@ -4,7 +4,7 @@ Telegram File Toolbox: send a file, choose an action, receive the result.
 
 ## Product status
 
-Private-alpha candidate. Image, PDF, media, multi-file Telegram execution, security controls, RU/EN UX, observability, bounded retention, and a reproducible local alpha runtime are implemented in the repository. Public release remains blocked on real local Telegram alpha evidence and the release gate.
+Private alpha is complete with RU/EN manual coverage and all runtime evidence gates satisfied. The repository is in RELEASE-001 public-readiness work: code, privacy, transport limits, production runbook, and release controls are being finalized. Public launch remains blocked on the real production/operator gates in `docs/RELEASE_CHECKLIST.md`.
 
 ## Product promise
 
@@ -46,9 +46,9 @@ The bot gateway never constructs arbitrary shell commands from user input. File 
 
 See docs/ARCHITECTURE.md and docs/SECURITY_PRIVACY.md.
 
-## Local private alpha
+## Local validation runtime
 
-The current alpha runs locally; Railway or another remote host is not required.
+The completed private-alpha runtime is reproducible locally; a remote host was not required for ALPHA-001.
 
 For the reproducible Docker path:
 
@@ -90,10 +90,14 @@ Official reference: https://core.telegram.org/bots/api
 - docs/PRODUCT.md — product contract and success metrics
 - docs/MVP.md — supported operations and acceptance criteria
 - docs/ARCHITECTURE.md — system design and state machines
-- docs/SECURITY_PRIVACY.md — threat model and privacy contract
+- docs/SECURITY_PRIVACY.md — threat model and security/privacy contract
+- docs/PRIVACY.md — public MVP privacy notice
+- docs/RETENTION.md — file/session/metadata retention contract
+- docs/PRODUCTION.md — public production, monitoring, smoke, and rollback runbook
+- docs/RELEASE_CHECKLIST.md — RELEASE-001 repository and external gates
 - docs/ROADMAP.md — implementation sequence and release gates
-- docs/DEPLOYMENT.md — local private Telegram alpha runbook
-- docs/PRIVATE_ALPHA.md — alpha evidence checklist
+- docs/DEPLOYMENT.md — completed local private-alpha runbook
+- docs/PRIVATE_ALPHA.md — completed alpha evidence checklist
 
 ## Working model
 

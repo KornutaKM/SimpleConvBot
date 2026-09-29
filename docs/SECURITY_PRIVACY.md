@@ -147,6 +147,9 @@ Avoid durable storage of:
 - thumbnails generated only for processing
 
 A public privacy notice must accurately state retention behavior before public launch.
+The current public-MVP policy automatically reaps terminal job records and
+Telegram update receipts after seven days; active jobs are preserved. See
+`docs/PRIVACY.md` and `docs/RETENTION.md`.
 
 ## Logging
 

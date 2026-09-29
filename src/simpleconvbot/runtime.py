@@ -26,6 +26,7 @@ from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.postgres import (
     PostgresCollectionSessionRepository,
     PostgresJobRepository,
+    PostgresOperationalMetadataReaper,
     PostgresUpdateReceiptStore,
     create_schema,
     make_engine,
@@ -90,6 +91,8 @@ async def run_polling(settings: Settings | None = None) -> None:
             max_active_global=current.max_active_jobs_global,
         ),
     )
+    receipts = PostgresUpdateReceiptStore(sessions)
+    metadata_reaper = PostgresOperationalMetadataReaper(sessions)
     jobs = JobService(repository, queue, registry, metrics=metrics)
     rate_limiter = RedisUpdateRateLimiter(
         redis_client,
@@ -118,7 +121,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         policy=session_policy,
     )
     dispatcher = create_dispatcher(
-        PostgresUpdateReceiptStore(sessions),
+        receipts,
         execution,
         collections,
     )
@@ -134,6 +137,8 @@ async def run_polling(settings: Settings | None = None) -> None:
         session_reaper=session_repository,
         metrics=metrics,
         workspace_ttl_seconds=current.temp_ttl_seconds,
+        metadata_reaper=metadata_reaper,
+        metadata_ttl_seconds=current.metadata_ttl_seconds,
     )
     worker = QueueWorker(
         queue,
@@ -172,6 +177,7 @@ async def run_polling(settings: Settings | None = None) -> None:
             [
                 BotCommand(command="start", description="Home"),
                 BotCommand(command="tools", description="All tools"),
+                BotCommand(command="help", description="Help"),
                 BotCommand(command="settings", description="Settings"),
             ]
         )
@@ -179,6 +185,7 @@ async def run_polling(settings: Settings | None = None) -> None:
             [
                 BotCommand(command="start", description="Главный экран"),
                 BotCommand(command="tools", description="Все инструменты"),
+                BotCommand(command="help", description="Помощь"),
                 BotCommand(command="settings", description="Настройки"),
             ],
             language_code="ru",

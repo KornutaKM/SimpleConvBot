@@ -21,16 +21,26 @@ class SessionReaper(Protocol):
     async def reap_expired(self, *, now: datetime | None = None) -> int: ...
 
 
+class MetadataReaper(Protocol):
+    async def reap_expired(
+        self,
+        *,
+        ttl_seconds: int,
+        now: datetime | None = None,
+    ) -> int: ...
+
+
 @dataclass(frozen=True, slots=True)
 class RetentionSweepResult:
     workspaces_scanned: int
     workspaces_deleted: int
     workspaces_failed: int
     sessions_deleted: int
+    metadata_deleted: int = 0
 
     @property
     def deleted_total(self) -> int:
-        return self.workspaces_deleted + self.sessions_deleted
+        return self.workspaces_deleted + self.sessions_deleted + self.metadata_deleted
 
 
 class RetentionSweepService:
@@ -41,13 +51,21 @@ class RetentionSweepService:
         session_reaper: SessionReaper,
         metrics: MetricsRegistry,
         workspace_ttl_seconds: int,
+        metadata_reaper: MetadataReaper | None = None,
+        metadata_ttl_seconds: int | None = None,
     ) -> None:
         if workspace_ttl_seconds <= 0:
             raise ValueError("workspace_ttl_seconds must be greater than zero")
+        if (metadata_reaper is None) != (metadata_ttl_seconds is None):
+            raise ValueError("metadata reaper and TTL must be configured together")
+        if metadata_ttl_seconds is not None and metadata_ttl_seconds <= 0:
+            raise ValueError("metadata_ttl_seconds must be greater than zero")
         self._workspace_reaper = workspace_reaper
         self._session_reaper = session_reaper
+        self._metadata_reaper = metadata_reaper
         self._metrics = metrics
         self._workspace_ttl_seconds = workspace_ttl_seconds
+        self._metadata_ttl_seconds = metadata_ttl_seconds
 
     async def sweep(self, *, now: datetime | None = None) -> RetentionSweepResult:
         current = now or datetime.now(UTC)
@@ -70,8 +88,22 @@ class RetentionSweepService:
             )
             raise
 
+        metadata_deleted = 0
+        if self._metadata_reaper is not None and self._metadata_ttl_seconds is not None:
+            try:
+                metadata_deleted = await self._metadata_reaper.reap_expired(
+                    ttl_seconds=self._metadata_ttl_seconds,
+                    now=current,
+                )
+            except Exception:
+                self._metrics.record_cleanup(
+                    deleted=workspaces.deleted + sessions_deleted,
+                    failed=workspaces.failed + 1,
+                )
+                raise
+
         self._metrics.record_cleanup(
-            deleted=workspaces.deleted + sessions_deleted,
+            deleted=workspaces.deleted + sessions_deleted + metadata_deleted,
             failed=workspaces.failed,
         )
         return RetentionSweepResult(
@@ -79,4 +111,5 @@ class RetentionSweepService:
             workspaces_deleted=workspaces.deleted,
             workspaces_failed=workspaces.failed,
             sessions_deleted=sessions_deleted,
+            metadata_deleted=metadata_deleted,
         )

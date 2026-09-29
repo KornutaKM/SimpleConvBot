@@ -1,43 +1,68 @@
 # Retention sweep
 
-Private alpha needs one observable operation for cleaning ephemeral state.
+SimpleConvBot uses one observable maintenance sweep for ephemeral file state,
+multi-file session state, and bounded operational metadata.
 
-RetentionSweepService composes the two existing authoritative cleanup paths:
+`RetentionSweepService` composes three authoritative cleanup paths:
 
-- LocalTemporaryStorage.reap_expired for UUID job workspaces
-- PostgresCollectionSessionRepository.reap_expired for abandoned collecting sessions
+- `LocalTemporaryStorage.reap_expired` for UUID job workspaces;
+- `PostgresCollectionSessionRepository.reap_expired` for expired collection
+  sessions;
+- `PostgresOperationalMetadataReaper.reap_expired` for terminal job rows and
+  Telegram update receipts older than the metadata TTL.
 
-The sweep uses one explicit current timestamp so filesystem and PostgreSQL retention decisions are evaluated against the same time boundary.
+One explicit current timestamp is used for all retention decisions in a sweep.
+
+## Current policy
+
+The public-MVP defaults are:
+
+- temporary job workspace TTL: 3600 seconds (1 hour);
+- collection session TTL: 3600 seconds (1 hour);
+- terminal job/update-receipt metadata TTL: 604800 seconds (7 days);
+- periodic retention sweep interval: 60 seconds.
+
+Normal operation cleanup removes job workspaces immediately after success or
+failure. The workspace TTL is a recovery boundary for abandoned state, not a
+promise that every file waits one hour before deletion.
+
+Active jobs are never deleted by the age-based metadata reaper. Only terminal
+job states are eligible.
 
 ## Metrics
 
-Each sweep produces one cleanup metrics attempt.
+Each sweep produces one aggregate cleanup metrics attempt.
 
 Deleted count includes:
 
-- stale workspaces successfully removed
-- expired collection sessions removed from PostgreSQL
+- stale workspaces successfully removed;
+- expired collection sessions;
+- expired terminal job records;
+- expired Telegram update receipts.
 
-Failed count includes:
-
-- workspace entries that could not be removed
-- one additional failure if the workspace or session reaper raises
-
-Exceptions are not swallowed. Metrics preserve the work already completed, then the failure propagates so an operator can see that the sweep was incomplete.
+Failed count includes workspace-level failures plus a bounded failure increment
+if a reaper raises. Exceptions are not swallowed: the failure propagates so the
+operator can see that the sweep was incomplete.
 
 ## Privacy
 
-Retention evidence contains aggregate counts only. It does not expose workspace paths, filenames, session IDs, user IDs, chat IDs, Telegram message IDs, or object references.
+Retention evidence contains aggregate counts only. It does not expose workspace
+paths, filenames, session IDs, Telegram user/chat/message IDs, provider file
+references, or file contents.
+
+The public policy is documented in `docs/PRIVACY.md`.
 
 ## Scheduling
 
-The Telegram runtime performs one retention sweep during startup and then runs a bounded periodic maintenance loop.
+The Telegram runtime performs one retention sweep during startup and then runs a
+bounded periodic maintenance loop.
 
-The effective private-alpha policy is configuration-driven:
+Configuration:
 
-- `TEMP_TTL_SECONDS` controls when a job workspace becomes eligible for deletion.
-- `RETENTION_SWEEP_INTERVAL_SECONDS` controls how often the periodic sweep runs.
-- the runtime emits one privacy-safe `retention_policy` event at startup with those two values.
-- the evidence summarizer reports `max_cleanup_delay_seconds = ttl_seconds + sweep_interval_seconds` as the bounded worst-case scheduling delay for a continuously running process.
+- `TEMP_TTL_SECONDS` controls abandoned workspace eligibility;
+- `METADATA_TTL_SECONDS` controls terminal job/update-receipt eligibility;
+- `RETENTION_SWEEP_INTERVAL_SECONDS` controls periodic sweep frequency.
 
-The initial startup sweep can remove already-expired state earlier than that worst-case periodic bound. Cleanup events remain aggregate-only and record deleted counts plus stable failure classes; they never expose workspace or session identity.
+The runtime emits the temporary-workspace retention policy as privacy-safe
+aggregate telemetry. Cleanup events remain aggregate-only and record deletion
+counts plus stable failure classes.

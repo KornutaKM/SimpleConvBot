@@ -1,0 +1,50 @@
+# RELEASE-001 — Public MVP checklist
+
+This checklist separates repository evidence from external production evidence.
+Do not convert an unchecked external item to PASS from CI or documentation.
+
+## Repository-ready gates
+
+- [x] ALPHA-001 completed with RU/EN manual review and all machine runtime gates.
+- [x] Security release controls are represented in code/CI and hardened-container
+  smoke.
+- [x] In-bot RU/EN Help describes enabled operations and current limits.
+- [x] Standard Telegram cloud download limit is rejected before provider I/O.
+- [x] Unsupported/oversized inputs have bounded user-facing errors.
+- [x] Restart fail-closed behavior was proven during ALPHA-001.
+- [x] Public privacy notice exists and distinguishes files from operational
+  metadata.
+- [x] Provider-neutral production, monitoring, smoke, and rollback runbook
+  exists.
+- [x] `/help` is part of the runtime Telegram command set.
+
+## Privacy/retention decision
+
+- [x] PostgreSQL terminal job rows and Telegram update receipts have a bounded
+  seven-day age-based retention policy; active jobs are preserved.
+- [ ] Confirm the selected production backup retention does not capture temporary
+  workspaces and matches `docs/PRIVACY.md`.
+
+## External production gates
+
+- [ ] Select/configure a continuously available production hosting provider.
+- [ ] Provision persistent PostgreSQL and Redis.
+- [ ] Install production secrets through the provider secret store.
+- [ ] Deploy one exact reviewed `main` commit/image.
+- [ ] Confirm exactly one polling app instance uses the public bot token.
+- [ ] Confirm startup health/recovery/retention/diagnostics are healthy.
+- [ ] Enable provider alerts for the conditions in `docs/PRODUCTION.md`.
+- [ ] Configure BotFather name/description/avatar and a reachable privacy link.
+- [ ] Run the production smoke matrix in `docs/PRODUCTION.md`.
+- [ ] Verify production cleanup after success and failure.
+- [ ] Verify the >20 MiB transport rejection in the production bot.
+- [ ] Perform or explicitly approve a rollback drill using the previous
+  known-good image/revision.
+
+## Final approval
+
+- [ ] No open Security Release Gate violation.
+- [ ] No unexplained production failure class.
+- [ ] Public privacy wording matches the deployed behavior.
+- [ ] All advertised operations have observed production paths.
+- [ ] RELEASE-001 operator review completed.

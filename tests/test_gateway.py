@@ -67,3 +67,11 @@ def test_router_registers_help_callback_handler() -> None:
     callback_names = {handler.callback.__name__ for handler in router.callback_query.handlers}
 
     assert "help" in callback_names
+
+
+def test_router_registers_help_message_command() -> None:
+    router = create_router()
+
+    message_names = {handler.callback.__name__ for handler in router.message.handlers}
+
+    assert "help_command" in message_names

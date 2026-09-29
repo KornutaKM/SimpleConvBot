@@ -191,6 +191,15 @@ def create_router(
             parse_mode=ParseMode.HTML,
         )
 
+    @router.message(Command("help"))
+    async def help_command(message: Message) -> None:
+        locale = _message_locale(message)
+        await message.answer(
+            help_text(locale),
+            reply_markup=help_keyboard(locale),
+            parse_mode=ParseMode.HTML,
+        )
+
     @router.callback_query(F.data == HOME_CALLBACK)
     async def home(callback: CallbackQuery) -> None:
         locale = _callback_locale(callback)
