@@ -69,9 +69,7 @@ class _OperationAccumulator:
     ) -> None:
         self.stages.setdefault(stage, _StageCounter()).record(outcome)
         if correlation_id is not None:
-            self.runs.setdefault(correlation_id, _RunAccumulator()).record(
-                stage, outcome, count
-            )
+            self.runs.setdefault(correlation_id, _RunAccumulator()).record(stage, outcome, count)
 
     def e2e_success_count(self) -> int:
         return sum(1 for run in self.runs.values() if run.is_e2e_success())
@@ -87,9 +85,7 @@ class _OperationAccumulator:
 
     def failed_run_cleanup_success_count(self) -> int:
         return sum(
-            1
-            for run in self.runs.values()
-            if run.has_failed_stage_with_successful_cleanup()
+            1 for run in self.runs.values() if run.has_failed_stage_with_successful_cleanup()
         )
 
     def to_payload(self) -> dict[str, object]:
@@ -107,8 +103,7 @@ class _OperationAccumulator:
                 "multi_file_e2e_success": multi_file_e2e_success,
             },
             "stages": {
-                stage: counter.to_payload()
-                for stage, counter in sorted(self.stages.items())
+                stage: counter.to_payload() for stage, counter in sorted(self.stages.items())
             },
             "validation_input_counts": sorted(validation_counts),
         }
@@ -182,11 +177,7 @@ class _EvidenceAccumulator:
         operation_id = _string(payload.get("operation_id"))
         stage = _string(payload.get("stage"))
         outcome = _string(payload.get("outcome"))
-        if (
-            operation_id is None
-            or stage is None
-            or outcome not in {"success", "failure"}
-        ):
+        if operation_id is None or stage is None or outcome not in {"success", "failure"}:
             return
         correlation_id = _string(payload.get("correlation_id"))
         count = _integer(payload.get("count"))
@@ -269,15 +260,10 @@ class _EvidenceAccumulator:
             operation.e2e_success_count() for operation in self.operations.values()
         )
         failed_cleanup_runs = sum(
-            operation.failed_run_cleanup_success_count()
-            for operation in self.operations.values()
+            operation.failed_run_cleanup_success_count() for operation in self.operations.values()
         )
-        unsupported_count = self.input_rejections_by_error.get(
-            "unsupported_document", 0
-        )
-        oversized_count = self.input_rejections_by_error.get(
-            "telegram_input_too_large", 0
-        )
+        unsupported_count = self.input_rejections_by_error.get("unsupported_document", 0)
+        oversized_count = self.input_rejections_by_error.get("telegram_input_too_large", 0)
         health_ready = False
         if self.latest_admin_diagnostic is not None:
             health_ready = self.latest_admin_diagnostic.get("health_ready") is True
@@ -285,21 +271,15 @@ class _EvidenceAccumulator:
         checks = {
             "images_to_pdf_multifile": _gate(image_collection > 0, image_collection),
             "pdf_merge_multifile": _gate(pdf_merge > 0, pdf_merge),
-            "duplicate_update_suppression": _gate(
-                self.duplicate_count > 0, self.duplicate_count
-            ),
-            "unsupported_input_rejection": _gate(
-                unsupported_count > 0, unsupported_count
-            ),
+            "duplicate_update_suppression": _gate(self.duplicate_count > 0, self.duplicate_count),
+            "unsupported_input_rejection": _gate(unsupported_count > 0, unsupported_count),
             "oversized_input_rejection": _gate(oversized_count > 0, oversized_count),
             "interrupted_restart_fail_closed": _gate(
                 self.recovery_interrupted_failed > 0,
                 self.recovery_interrupted_failed,
             ),
             "cleanup_after_success": _gate(successful_runs > 0, successful_runs),
-            "cleanup_after_failure": _gate(
-                failed_cleanup_runs > 0, failed_cleanup_runs
-            ),
+            "cleanup_after_failure": _gate(failed_cleanup_runs > 0, failed_cleanup_runs),
             "retention_policy_observed": _gate(
                 self.latest_retention_policy is not None,
                 self.retention_policy_events,
@@ -311,8 +291,7 @@ class _EvidenceAccumulator:
             "dependencies_ready": _gate(health_ready, 1 if health_ready else 0),
         }
         ready = all(
-            isinstance(check, dict) and check.get("status") == "PASS"
-            for check in checks.values()
+            isinstance(check, dict) and check.get("status") == "PASS" for check in checks.values()
         )
         return {
             "machine_verifiable_ready": ready,
@@ -451,10 +430,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sys.stdout.write("\n")
     if args.require_runtime_gates:
         gates = summary.get("runtime_gates")
-        if (
-            not isinstance(gates, dict)
-            or gates.get("machine_verifiable_ready") is not True
-        ):
+        if not isinstance(gates, dict) or gates.get("machine_verifiable_ready") is not True:
             return 2
     return 0
 
