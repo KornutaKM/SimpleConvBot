@@ -189,6 +189,9 @@ At startup the runtime reconciles durable PostgreSQL state with Redis:
   `FAILED`;
 - an interrupted `UPLOADING` job is **not uploaded again**, because the prior
   Telegram request may already have succeeded before the process died;
+- an unexpected queue-worker task failure terminates the application runtime instead of
+  leaving Telegram polling alive without a worker; the hosting restart then enters this
+  same reconciliation path;
 - the user receives a bounded RU/EN restart message telling them to resend only
   if no result arrived.
 
