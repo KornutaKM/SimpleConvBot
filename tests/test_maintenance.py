@@ -158,7 +158,6 @@ def test_retention_ttl_must_be_positive() -> None:
         )
 
 
-
 def test_metadata_reaper_failure_is_visible_and_propagated() -> None:
     async def scenario() -> None:
         metrics = MetricsRegistry()
