@@ -480,12 +480,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     sys.stdout.write("\n")
 
     gates = summary.get("runtime_gates")
-    if args.require_runtime_gates:
-        if not isinstance(gates, dict) or gates.get("machine_verifiable_ready") is not True:
-            return 2
-    if args.require_all_gates:
-        if not isinstance(gates, dict) or gates.get("all_alpha_gates_ready") is not True:
-            return 2
+    if args.require_runtime_gates and (
+        not isinstance(gates, dict) or gates.get("machine_verifiable_ready") is not True
+    ):
+        return 2
+    if args.require_all_gates and (
+        not isinstance(gates, dict) or gates.get("all_alpha_gates_ready") is not True
+    ):
+        return 2
     return 0
 
 
