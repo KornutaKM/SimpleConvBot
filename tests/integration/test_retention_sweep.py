@@ -108,7 +108,6 @@ async def _retention_sweep_removes_only_expired_alpha_state(tmp_path: Path) -> N
         await engine.dispose()
 
 
-
 @pytest.mark.integration
 def test_operational_metadata_reaper_deletes_only_expired_terminal_state() -> None:
     asyncio.run(_operational_metadata_reaper_deletes_only_expired_terminal_state())
