@@ -144,7 +144,6 @@ def test_retention_sweep_interval_cannot_exceed_temp_ttl() -> None:
         )
 
 
-
 def test_retention_sweep_interval_cannot_exceed_metadata_ttl() -> None:
     with pytest.raises(SettingsError, match="must not exceed METADATA_TTL_SECONDS"):
         Settings.from_mapping(
