@@ -18,7 +18,12 @@ from aiogram.types import (
 from simpleconvbot.localization import Locale, resolve_locale
 from simpleconvbot.ports import UpdateReceiptStore
 from simpleconvbot.sessions import SessionKind
-from simpleconvbot.telemetry import OperationOutcome, TelemetryEvent, TelemetryEventType, emit_telemetry
+from simpleconvbot.telemetry import (
+    OperationOutcome,
+    TelemetryEvent,
+    TelemetryEventType,
+    emit_telemetry,
+)
 from simpleconvbot.telegram_execution import (
     TelegramExecutionGateway,
     audio_operation,
