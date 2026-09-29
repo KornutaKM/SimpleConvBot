@@ -97,6 +97,7 @@ contains:
 - process uptime;
 - PostgreSQL and Redis health state, latency, and exception type only;
 - per-operation stage totals, successes, failures, and duration aggregates;
+- stable failure-class counts by operation, stage, and error_code;
 - retention cleanup aggregate counters.
 
 Operation stages cover validation, queue, worker, upload, and cleanup paths.
@@ -152,7 +153,8 @@ After deployment:
    - duplicate callback/update;
    - restart during or around queued work.
 8. Verify the `admin_diagnostic` operation-stage aggregates move for the
-   exercised operations and that cleanup counters are attributable.
+   exercised operations, failure-class counts use only stable error codes, and
+   cleanup counters are attributable.
 9. Verify result delivery and cleanup evidence without recording filenames,
    provider file references, user/chat IDs, message contents, tokens, database
    URLs, or Redis URLs.
