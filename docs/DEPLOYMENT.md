@@ -134,8 +134,8 @@ After deployment:
 1. Confirm the Railway deployment is built from the intended exact `main`
    commit.
 2. Confirm startup succeeds through PostgreSQL schema initialization, Redis
-   connectivity, queue recovery, the initial retention sweep, and the initial
-   `admin_diagnostic` with `health.ready=true`.
+   connectivity, startup job reconciliation, the initial retention sweep, and
+   the initial `admin_diagnostic` with `health.ready=true`.
 3. Confirm Telegram long polling remains running with exactly one replica.
 4. Open `@KoxConv_bot` and send `/start`.
 5. Verify navigation in both Russian and English Telegram locales.
@@ -174,6 +174,24 @@ rollback.
 
 If polling behaves unexpectedly, stop extra application replicas first and
 verify that only one instance is using the bot token.
+
+### Restart semantics
+
+At startup the runtime reconciles durable PostgreSQL state with Redis:
+
+- Redis reserved/inflight queue entries are returned to the ready queue;
+- durable `QUEUED` jobs are enqueue-safe again, even if the prior process died
+  between the PostgreSQL state transition and Redis enqueue;
+- `RECEIVED`, `VALIDATING`, `PROCESSING`, and `UPLOADING` jobs are treated
+  as interrupted, their workspaces are cleaned, and they transition to
+  `FAILED`;
+- an interrupted `UPLOADING` job is **not uploaded again**, because the prior
+  Telegram request may already have succeeded before the process died;
+- the user receives a bounded RU/EN restart message telling them to resend only
+  if no result arrived.
+
+A cleanup failure aborts startup before that interrupted job is marked failed,
+so a subsequent restart can retry cleanup rather than silently orphaning data.
 
 ## Secret rotation
 
