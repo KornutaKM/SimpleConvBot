@@ -114,6 +114,7 @@ Record aggregate operational evidence only:
 - expected vs actual user-visible result
 - collection validation `count` as privacy-safe multi-file cardinality evidence
 - `update_deduplicated` events as duplicate-update suppression evidence
+- `input_rejected` events as aggregate unsupported/oversized rejection evidence
 - `recovery_summary` events as aggregate startup-recovery evidence
 
 Do not record original filenames, Telegram file paths, user/chat IDs, provider URLs, secrets, or message contents.
@@ -125,8 +126,9 @@ docker compose logs --since=10m app | python scripts/alpha_evidence.py
 ```
 
 The summarizer emits only allowlisted aggregate fields. It counts complete correlated E2E
-operation runs, multi-file E2E runs, duplicate-update suppression, startup recovery summaries,
-retention cleanup, current health readiness, and the latest aggregate failure classes. It never
+operation runs, multi-file E2E runs, duplicate-update suppression, bounded input rejections,
+startup recovery summaries, retention cleanup, current health readiness, and the latest
+aggregate failure classes. It never
 echoes raw log lines or unknown payload fields.
 
 Before public launch, use the aggregate failure-class counters from
