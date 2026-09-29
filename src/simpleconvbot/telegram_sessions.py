@@ -183,7 +183,10 @@ class TelegramCollectionGateway:
             await message.answer(error_text(_session_error_code(exc), Locale.RU))
             return True
 
-        if snapshot.state is not SessionState.COLLECTING or datetime.now(UTC) >= snapshot.expires_at:
+        if (
+            snapshot.state is not SessionState.COLLECTING
+            or datetime.now(UTC) >= snapshot.expires_at
+        ):
             await self._focus.clear(
                 user_id=user.id,
                 chat_id=message.chat.id,
