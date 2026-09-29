@@ -81,6 +81,10 @@ class MetricsRegistry:
             len(error_code) > 128 or _ERROR_CODE.fullmatch(error_code) is None
         ):
             raise ValueError("error_code must be a stable machine identifier")
+        if outcome is OperationOutcome.FAILURE and error_code is None:
+            raise ValueError("failed operation metrics require error_code")
+        if outcome is OperationOutcome.SUCCESS and error_code is not None:
+            raise ValueError("successful operation metrics must not include error_code")
 
         key = (operation_id, stage)
         with self._lock:
