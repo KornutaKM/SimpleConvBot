@@ -282,7 +282,7 @@ class TelegramPdfExecutor(OperationExecutor):
                     info.version,
                     Locale.EN,
                 ),
-            )
+            ),
         )
 
     async def _split_pdf(self, job: JobSnapshot) -> ExecutionResult:
@@ -428,11 +428,7 @@ class TelegramDelivery(DeliveryPort):
         locale = await _stored_locale(self._locale_store, job.user_id)
         try:
             if result.delivery_text is not None:
-                text = (
-                    result.delivery_text.ru
-                    if locale is Locale.RU
-                    else result.delivery_text.en
-                )
+                text = result.delivery_text.ru if locale is Locale.RU else result.delivery_text.en
                 await self._bot.send_message(job.chat_id, text)
             else:
                 for index, output_ref in enumerate(result.output_refs):
