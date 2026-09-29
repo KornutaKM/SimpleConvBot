@@ -249,7 +249,10 @@ def test_download_error_mapping_preserves_bounded_storage_identity() -> None:
         telegram_download_error_code(quota)
         == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
     )
-    assert telegram_download_error_code(tampered) == StorageErrorCode.WORKSPACE_TAMPERED.value
+    assert (
+        telegram_download_error_code(tampered)
+        == StorageErrorCode.WORKSPACE_TAMPERED.value
+    )
     assert (
         telegram_download_error_code(RuntimeError("provider unavailable"))
         == UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value
@@ -259,7 +262,9 @@ def test_download_error_mapping_preserves_bounded_storage_identity() -> None:
 def test_single_file_download_rejects_known_oversize_before_provider_io(
     tmp_path: Path,
 ) -> None:
-    asyncio.run(_single_file_download_rejects_known_oversize_before_provider_io(tmp_path))
+    asyncio.run(
+        _single_file_download_rejects_known_oversize_before_provider_io(tmp_path)
+    )
 
 
 async def _single_file_download_rejects_known_oversize_before_provider_io(
