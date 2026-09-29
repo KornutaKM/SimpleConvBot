@@ -58,6 +58,7 @@ from simpleconvbot.telemetry import (
     TelemetryEvent,
     TelemetryEventType,
     emit_operation_telemetry,
+    emit_telemetry,
     opaque_correlation_id,
 )
 from simpleconvbot.ui import (
@@ -562,6 +563,17 @@ class TelegramExecutionGateway:
                 error_code=code,
                 metrics=self._metrics,
             )
+            if code == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value:
+                emit_telemetry(
+                    LOGGER,
+                    TelemetryEvent.now(
+                        TelemetryEventType.INPUT_REJECTED,
+                        operation_id=job.operation_id,
+                        outcome=OperationOutcome.FAILURE,
+                        error_code=code,
+                        count=1,
+                    ),
+                )
             raise UserFacingError(code) from exc
         _emit(
             job,

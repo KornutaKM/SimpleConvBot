@@ -91,6 +91,8 @@ class _EvidenceAccumulator:
     operations: dict[str, _OperationAccumulator] = field(default_factory=dict)
     duplicate_events: int = 0
     duplicate_count: int = 0
+    input_rejection_events: int = 0
+    input_rejections_by_error: dict[str, int] = field(default_factory=dict)
     recovery_summaries: int = 0
     recovery_clean_summaries: int = 0
     recovery_actions_total: int = 0
@@ -107,6 +109,14 @@ class _EvidenceAccumulator:
         elif event == "update_deduplicated":
             self.duplicate_events += 1
             self.duplicate_count += _integer(payload.get("count")) or 0
+        elif event == "input_rejected":
+            error_code = _string(payload.get("error_code"))
+            if error_code is not None:
+                self.input_rejection_events += 1
+                count = _integer(payload.get("count")) or 1
+                self.input_rejections_by_error[error_code] = (
+                    self.input_rejections_by_error.get(error_code, 0) + count
+                )
         elif event == "recovery_summary":
             count = _integer(payload.get("count")) or 0
             self.recovery_summaries += 1
@@ -152,6 +162,10 @@ class _EvidenceAccumulator:
             "duplicate_updates": {
                 "events": self.duplicate_events,
                 "dropped_total": self.duplicate_count,
+            },
+            "input_rejections": {
+                "events": self.input_rejection_events,
+                "by_error_code": dict(sorted(self.input_rejections_by_error.items())),
             },
             "recovery": {
                 "summary_events": self.recovery_summaries,
