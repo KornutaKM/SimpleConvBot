@@ -8,6 +8,7 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
 from simpleconvbot.jobs import JobSnapshot, JobState
+from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition
 from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import (
@@ -19,6 +20,7 @@ from simpleconvbot.telegram_execution import (
     pdf_operation,
     video_operation,
 )
+from simpleconvbot.telemetry import OperationStage
 
 
 def test_callback_mappings_are_explicit_and_closed() -> None:
@@ -190,3 +192,32 @@ async def _pdf_executor_rejects_non_contiguous_collection_inputs(tmp_path: Path)
             OperationDefinition("pdf.merge", 1, "pdf"),
             workspace,
         )
+
+
+def test_image_executor_records_aggregate_worker_metric(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_records_aggregate_worker_metric(tmp_path))
+
+
+async def _image_executor_records_aggregate_worker_metric(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    metrics = MetricsRegistry()
+    job = _job("image.to_png")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (8, 8), "blue").save(source, format="JPEG")
+
+    await TelegramImageExecutor(storage, metrics=metrics).execute(
+        job,
+        OperationDefinition("image.to_png", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    snapshot = metrics.snapshot()
+    worker_metrics = [
+        item
+        for item in snapshot.operations
+        if item.operation_id == "image.to_png" and item.stage is OperationStage.WORKER
+    ]
+    assert len(worker_metrics) == 1
+    assert worker_metrics[0].total == 1
+    assert worker_metrics[0].succeeded == 1
+    assert worker_metrics[0].failed == 0

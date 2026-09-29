@@ -11,6 +11,7 @@ import pytest
 from redis.asyncio import Redis
 
 from simpleconvbot.jobs import CreateJob, JobState
+from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition, OperationRegistry
 from simpleconvbot.ports import ExecutionResult
 from simpleconvbot.postgres import (
@@ -24,6 +25,7 @@ from simpleconvbot.postgres import (
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.services import JobService, JobWorker, QueueWorker, StartJobRequest
 from simpleconvbot.storage import LocalTemporaryStorage
+from simpleconvbot.telemetry import OperationStage
 
 
 class CountingExecutor:
@@ -114,7 +116,8 @@ async def _duplicate_update_and_callback_execute_once() -> None:
         repository = PostgresJobRepository(sessions)
         queue = RedisJobQueue(redis_client, prefix="test:jobs")
         registry = OperationRegistry([OperationDefinition("test.noop", 1, "test")])
-        service = JobService(repository, queue, registry)
+        metrics = MetricsRegistry()
+        service = JobService(repository, queue, registry, metrics=metrics)
         request = StartJobRequest(
             user_id=10,
             chat_id=20,
@@ -139,6 +142,7 @@ async def _duplicate_update_and_callback_execute_once() -> None:
             storage=LocalTemporaryStorage(temp_root),
             executor=executor,
             delivery=delivery,
+            metrics=metrics,
         )
         runner = QueueWorker(queue, worker)
 
@@ -149,6 +153,22 @@ async def _duplicate_update_and_callback_execute_once() -> None:
         assert final.state is JobState.COMPLETED
         assert executor.calls == 1
         assert len(delivery.outputs) == 1
+
+        snapshot = metrics.snapshot()
+        queue_metrics = [
+            item
+            for item in snapshot.operations
+            if item.operation_id == "test.noop" and item.stage is OperationStage.QUEUE
+        ]
+        cleanup_metrics = [
+            item
+            for item in snapshot.operations
+            if item.operation_id == "test.noop" and item.stage is OperationStage.CLEANUP
+        ]
+        assert queue_metrics
+        assert queue_metrics[0].succeeded >= 1
+        assert cleanup_metrics
+        assert cleanup_metrics[0].succeeded == 1
     finally:
         await redis_client.aclose()
         await engine.dispose()

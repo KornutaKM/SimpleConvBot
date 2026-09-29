@@ -7,7 +7,7 @@ from uuid import UUID
 
 import pytest
 
-from simpleconvbot.diagnostics import AdminDiagnostics
+from simpleconvbot.diagnostics import AdminDiagnostics, emit_admin_diagnostics
 from simpleconvbot.health import ComponentHealth, HealthReport, HealthState
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.telemetry import (
@@ -15,6 +15,7 @@ from simpleconvbot.telemetry import (
     OperationStage,
     TelemetryEvent,
     TelemetryEventType,
+    emit_operation_telemetry,
     emit_telemetry,
     opaque_correlation_id,
 )
@@ -175,3 +176,72 @@ def test_health_payload_exposes_error_type_not_exception_message() -> None:
             }
         ],
     }
+
+
+def test_operation_telemetry_updates_aggregate_metrics(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    registry = MetricsRegistry()
+    event = TelemetryEvent(
+        event_type=TelemetryEventType.OPERATION_STAGE,
+        timestamp=datetime(2026, 9, 29, 0, 0, tzinfo=UTC),
+        operation_id="video.compress",
+        stage=OperationStage.WORKER,
+        outcome=OperationOutcome.SUCCESS,
+        duration_ms=42.5,
+    )
+    logger = logging.getLogger("simpleconvbot.test.metrics")
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        emit_operation_telemetry(logger, event, registry)
+
+    snapshot = registry.snapshot()
+    assert len(snapshot.operations) == 1
+    metric = snapshot.operations[0]
+    assert metric.operation_id == "video.compress"
+    assert metric.stage is OperationStage.WORKER
+    assert metric.total == 1
+    assert metric.succeeded == 1
+    assert metric.failed == 0
+    assert metric.duration_sum_ms == 42.5
+
+
+def test_admin_diagnostics_emit_structured_privacy_safe_json(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    registry = MetricsRegistry()
+    registry.record_cleanup(deleted=2)
+    diagnostics = AdminDiagnostics(
+        version="0.1.0.dev0",
+        environment="production",
+        generated_at=datetime(2026, 9, 29, 0, 0, tzinfo=UTC),
+        uptime_seconds=15,
+        health=HealthReport(
+            components=(
+                ComponentHealth("postgres", HealthState.UP, 1),
+                ComponentHealth("redis", HealthState.UP, 2),
+            )
+        ),
+        metrics=registry.snapshot(),
+    )
+    logger = logging.getLogger("simpleconvbot.test.admin")
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        emit_admin_diagnostics(logger, diagnostics)
+
+    payload = json.loads(caplog.messages[-1])
+    assert payload["event"] == "admin_diagnostic"
+    assert payload["environment"] == "production"
+    assert payload["health"]["ready"] is True
+    assert payload["metrics"]["cleanup"]["deleted"] == 2
+    serialized = caplog.messages[-1].lower()
+    for forbidden in (
+        "user_id",
+        "chat_id",
+        "filename",
+        "telegram_file",
+        "database_url",
+        "redis_url",
+        "token",
+    ):
+        assert forbidden not in serialized

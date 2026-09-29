@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import blake2b
+from typing import Protocol
 from uuid import UUID
 
 _SAFE_ID = re.compile(r"^[a-z0-9]+(?:[._:-][a-z0-9]+)*$")
@@ -24,6 +25,17 @@ class OperationStage(StrEnum):
 class OperationOutcome(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"
+
+
+class OperationMetricRecorder(Protocol):
+    def record_operation(
+        self,
+        *,
+        operation_id: str,
+        stage: OperationStage,
+        outcome: OperationOutcome,
+        duration_ms: float,
+    ) -> None: ...
 
 
 class TelemetryEventType(StrEnum):
@@ -124,6 +136,29 @@ def opaque_correlation_id(job_id: UUID) -> str:
 
 def emit_telemetry(logger: logging.Logger, event: TelemetryEvent) -> None:
     logger.info(event.to_json())
+
+
+def emit_operation_telemetry(
+    logger: logging.Logger,
+    event: TelemetryEvent,
+    metrics: OperationMetricRecorder | None = None,
+) -> None:
+    if (
+        event.event_type is not TelemetryEventType.OPERATION_STAGE
+        or event.operation_id is None
+        or event.stage is None
+        or event.outcome is None
+        or event.duration_ms is None
+    ):
+        raise ValueError("operation telemetry requires operation_id, stage, outcome, and duration")
+    if metrics is not None:
+        metrics.record_operation(
+            operation_id=event.operation_id,
+            stage=event.stage,
+            outcome=event.outcome,
+            duration_ms=event.duration_ms,
+        )
+    emit_telemetry(logger, event)
 
 
 def _validate_safe_id(name: str, value: str) -> None:

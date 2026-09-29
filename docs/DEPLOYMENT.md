@@ -46,6 +46,7 @@ REDIS_URL=${{Redis.REDIS_URL}}
 TEMP_ROOT=/app/var/jobs
 TEMP_TTL_SECONDS=3600
 RETENTION_SWEEP_INTERVAL_SECONDS=60
+DIAGNOSTICS_INTERVAL_SECONDS=300
 ```
 
 If the database service names are not `Postgres` and `Redis`, use the
@@ -54,6 +55,10 @@ actual Railway service names in the reference expressions.
 `RETENTION_SWEEP_INTERVAL_SECONDS` must be positive and must not exceed
 `TEMP_TTL_SECONDS`. The runtime performs an initial fail-closed retention
 sweep before polling, then repeats bounded sweeps periodically.
+
+`DIAGNOSTICS_INTERVAL_SECONDS` controls aggregate operational diagnostics.
+Startup also performs a bounded PostgreSQL/Redis health probe and does not
+start Telegram polling if dependencies are not ready.
 
 `TELEGRAM_BOT_TOKEN` is a secret. Never commit it to this repository, an
 issue, a pull request, logs, or chat.
@@ -82,6 +87,27 @@ and collection-session state.
 
 Do not expose Redis publicly for this deployment.
 
+## Operational diagnostics
+
+The runtime emits structured `admin_diagnostic` JSON at startup and then at
+the configured diagnostics interval. The payload is aggregate-only and
+contains:
+
+- package version and environment;
+- process uptime;
+- PostgreSQL and Redis health state, latency, and exception type only;
+- per-operation stage totals, successes, failures, and duration aggregates;
+- retention cleanup aggregate counters.
+
+Operation stages cover validation, queue, worker, upload, and cleanup paths.
+The diagnostic payload must not contain Telegram user/chat IDs, original
+filenames, Telegram provider file references, message contents, tokens,
+database URLs, or Redis URLs.
+
+A failed periodic health probe is observable in the next diagnostic payload but
+does not by itself terminate an already-running bot. Startup dependency health
+is fail-closed.
+
 ## Deployment settings
 
 Private-alpha settings:
@@ -102,7 +128,8 @@ After deployment:
 1. Confirm the Railway deployment is built from the intended exact `main`
    commit.
 2. Confirm startup succeeds through PostgreSQL schema initialization, Redis
-   connectivity, queue recovery, and the initial retention sweep.
+   connectivity, queue recovery, the initial retention sweep, and the initial
+   `admin_diagnostic` with `health.ready=true`.
 3. Confirm Telegram long polling remains running with exactly one replica.
 4. Open `@KoxConv_bot` and send `/start`.
 5. Verify navigation in both Russian and English Telegram locales.
@@ -118,11 +145,13 @@ After deployment:
    - oversized input;
    - duplicate callback/update;
    - restart during or around queued work.
-8. Verify result delivery and cleanup evidence without recording filenames,
+8. Verify the `admin_diagnostic` operation-stage aggregates move for the
+   exercised operations and that cleanup counters are attributable.
+9. Verify result delivery and cleanup evidence without recording filenames,
    provider file references, user/chat IDs, message contents, tokens, database
    URLs, or Redis URLs.
-9. Leave the deployment running beyond one retention interval and verify that
-   no unexplained stale workspace/session remains.
+10. Leave the deployment running beyond one retention interval and verify that
+    no unexplained stale workspace/session remains.
 
 Use `docs/PRIVATE_ALPHA.md` as the acceptance record. Do not check an item
 from repository CI alone when the checklist explicitly requires real Telegram

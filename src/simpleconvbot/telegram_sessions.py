@@ -41,11 +41,12 @@ from simpleconvbot.sessions import (
 from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import TelegramFile, UserFacingError, message_file
 from simpleconvbot.telemetry import (
+    OperationMetricRecorder,
     OperationOutcome,
     OperationStage,
     TelemetryEvent,
     TelemetryEventType,
-    emit_telemetry,
+    emit_operation_telemetry,
     opaque_correlation_id,
 )
 from simpleconvbot.ui import (
@@ -77,6 +78,7 @@ class TelegramCollectionGateway:
         storage: LocalTemporaryStorage,
         rate_limiter: RedisUpdateRateLimiter,
         locale_store: RedisUserLocaleStore | None = None,
+        metrics: OperationMetricRecorder | None = None,
         policy: SessionPolicy | None = None,
     ) -> None:
         self._bot = bot
@@ -86,6 +88,7 @@ class TelegramCollectionGateway:
         self._storage = storage
         self._rate_limiter = rate_limiter
         self._locale_store = locale_store
+        self._metrics = metrics
         self._policy = policy or SessionPolicy()
 
     async def start(
@@ -433,11 +436,17 @@ class TelegramCollectionGateway:
                 await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
             await self._storage.cleanup_workspace(job.job_id)
-            _emit_download(job, started, OperationOutcome.FAILURE, _session_error_code(exc))
+            _emit_download(
+                job,
+                started,
+                OperationOutcome.FAILURE,
+                _session_error_code(exc),
+                self._metrics,
+            )
             if isinstance(exc, UserFacingError):
                 raise
             raise UserFacingError(UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value) from exc
-        _emit_download(job, started, OperationOutcome.SUCCESS)
+        _emit_download(job, started, OperationOutcome.SUCCESS, metrics=self._metrics)
 
     async def _resolved_size(self, attachment: TelegramFile) -> int:
         if attachment.file_size is not None and attachment.file_size > 0:
@@ -547,8 +556,9 @@ def _emit_download(
     started: float,
     outcome: OperationOutcome,
     error_code: str | None = None,
+    metrics: OperationMetricRecorder | None = None,
 ) -> None:
-    emit_telemetry(
+    emit_operation_telemetry(
         LOGGER,
         TelemetryEvent.now(
             TelemetryEventType.OPERATION_STAGE,
@@ -559,4 +569,5 @@ def _emit_download(
             error_code=error_code,
             correlation_id=opaque_correlation_id(job.job_id),
         ),
+        metrics,
     )
