@@ -16,6 +16,10 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] PostgreSQL/Redis health probes
 - [x] aggregate operation/cleanup metrics primitives
 - [x] bounded retention sweep for stale workspaces and expired collection sessions
+- [x] production runtime startup + periodic retention sweep wiring
+- [x] real Telegram execution wiring for image/PDF/media operations
+- [x] real Telegram multi-file wiring for images-to-PDF and PDF merge
+- [x] RU/EN routing through gateway, sessions and queued delivery
 
 ## Telegram end-to-end evidence still required
 
@@ -77,6 +81,9 @@ Minimum media cases:
 - timeout path
 
 ## Evidence record per run
+
+Start every run by recording the exact GitHub `main` commit and the Railway
+deployment identity. Do not mix evidence from different deployed revisions.
 
 Record aggregate operational evidence only:
 
