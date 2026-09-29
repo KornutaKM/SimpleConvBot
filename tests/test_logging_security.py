@@ -46,8 +46,7 @@ def test_redacting_formatter_scrubs_exception_traceback_text() -> None:
 
     try:
         raise RuntimeError(
-            f"provider failed at {database_url}; "
-            f"file_path=photos/file_7.jpg; token={token}"
+            f"provider failed at {database_url}; file_path=photos/file_7.jpg; token={token}"
         )
     except RuntimeError:
         record = logging.LogRecord(
