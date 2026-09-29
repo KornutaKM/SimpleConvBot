@@ -5,6 +5,7 @@ from aiogram.types import InlineKeyboardMarkup
 from simpleconvbot.localization import Locale
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
+    HELP_CALLBACK,
     HOME_CALLBACK,
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
@@ -13,6 +14,8 @@ from simpleconvbot.ui import (
     audio_actions_keyboard,
     collection_keyboard,
     format_file_size,
+    help_keyboard,
+    help_text,
     home_keyboard,
     image_actions_keyboard,
     image_document_card,
@@ -41,6 +44,7 @@ def test_home_keyboard_exposes_primary_navigation() -> None:
         SEND_FILE_CALLBACK,
         TOOLS_CALLBACK,
         SETTINGS_CALLBACK,
+        HELP_CALLBACK,
     }
 
 
@@ -160,3 +164,26 @@ def test_pdf_info_text_is_localized_and_uses_existing_size_formatting() -> None:
     assert "Pages: 3" in en
     assert "Size: 1.5 KB" in en
     assert "Version: 1.7" in en
+
+
+def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
+    ru = help_text(Locale.RU)
+    en = help_text(Locale.EN)
+
+    assert "Как пользоваться" in ru
+    assert "How to use SimpleConv" in en
+    assert "до 20 файлов" in ru
+    assert "up to 20 files" in en
+    assert "до 40 МБ" in ru
+    assert "up to 40 MB" in en
+    assert "через 1 час" in ru
+    assert "after 1 hour" in en
+    assert "скрепку Telegram" in ru
+    assert "Telegram attachment button" in en
+    assert _callback_data(help_keyboard(Locale.RU)) == {HOME_CALLBACK}
+    assert _callback_data(help_keyboard(Locale.EN)) == {HOME_CALLBACK}
+
+
+def test_home_keyboard_exposes_localized_help_button() -> None:
+    assert "❓ Помощь" in _button_text(home_keyboard(Locale.RU))
+    assert "❓ Help" in _button_text(home_keyboard(Locale.EN))
