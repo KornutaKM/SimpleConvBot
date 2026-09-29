@@ -39,7 +39,12 @@ from simpleconvbot.sessions import (
     SessionState,
 )
 from simpleconvbot.storage import LocalTemporaryStorage
-from simpleconvbot.telegram_execution import TelegramFile, UserFacingError, message_file
+from simpleconvbot.telegram_execution import (
+    TelegramFile,
+    UserFacingError,
+    message_file,
+    telegram_download_error_code,
+)
 from simpleconvbot.telemetry import (
     OperationMetricRecorder,
     OperationOutcome,
@@ -435,17 +440,16 @@ class TelegramCollectionGateway:
                 await self._bot.download(remote, destination=destination)
                 await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
+            code = telegram_download_error_code(exc)
             await self._storage.cleanup_workspace(job.job_id)
             _emit_download(
                 job,
                 started,
                 OperationOutcome.FAILURE,
-                _session_error_code(exc),
+                code,
                 self._metrics,
             )
-            if isinstance(exc, UserFacingError):
-                raise
-            raise UserFacingError(UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value) from exc
+            raise UserFacingError(code) from exc
         _emit_download(job, started, OperationOutcome.SUCCESS, metrics=self._metrics)
 
     async def _resolved_size(self, attachment: TelegramFile) -> int:

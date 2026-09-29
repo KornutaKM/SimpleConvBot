@@ -41,6 +41,7 @@ class UserErrorCode(StrEnum):
     SESSION_ALREADY_ACTIVE = "session_already_active"
     SESSION_WRONG_FILE_TYPE = "session_wrong_file_type"
     TELEGRAM_FILE_SIZE_UNKNOWN = "telegram_file_size_unknown"
+    TELEGRAM_INPUT_TOO_LARGE = "telegram_input_too_large"
     TELEGRAM_DOWNLOAD_FAILED = "telegram_download_failed"
     TELEGRAM_UPLOAD_FAILED = "telegram_upload_failed"
     RESTART_INTERRUPTED = "restart_interrupted"
@@ -323,6 +324,10 @@ _ERROR_TEXT: dict[str, LocalizedText] = {
         "The isolated processing result failed validation.",
     ),
     # Transport/internal fallback codes reserved for the Telegram adapter.
+    "telegram_input_too_large": LocalizedText(
+        "Файл слишком большой для загрузки в эту операцию.",
+        "The file is too large to upload for this operation.",
+    ),
     "telegram_download_failed": LocalizedText(
         "Не удалось получить файл из Telegram. Попробуйте отправить его ещё раз.",
         "The file could not be downloaded from Telegram. Please send it again.",
