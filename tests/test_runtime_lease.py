@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import cast
 
 import pytest
+from redis.asyncio import Redis
 
 from simpleconvbot.runtime import _run_runtime_with_lease
 from simpleconvbot.runtime_lease import RedisRuntimeLease, RuntimeLeaseLost
@@ -48,5 +49,15 @@ def test_lease_loss_cancels_owned_runtime_and_propagates() -> None:
         assert owned_started.is_set()
         assert owned_cancelled.is_set()
         assert stop.is_set()
+
+    asyncio.run(scenario())
+
+
+def test_lease_maintain_rejects_non_positive_explicit_interval() -> None:
+    async def scenario() -> None:
+        lease = RedisRuntimeLease(cast(Redis, object()), ttl_seconds=30)
+
+        with pytest.raises(ValueError, match="interval_seconds"):
+            await lease.maintain(asyncio.Event(), interval_seconds=0)
 
     asyncio.run(scenario())
