@@ -153,6 +153,10 @@ async def run_polling(settings: Settings | None = None) -> None:
         await create_schema(engine)
         await redis_client.ping()
         await recovery.recover()
+        _emit_retention_policy(
+            ttl_seconds=current.temp_ttl_seconds,
+            interval_seconds=current.retention_sweep_interval_seconds,
+        )
         initial_retention = await retention.sweep()
         _require_complete_initial_retention(initial_retention)
         initial_health = await collect_health(engine, redis_client)
@@ -331,6 +335,17 @@ def _package_version() -> str:
         return version("simpleconvbot")
     except PackageNotFoundError:
         return "unknown"
+
+
+def _emit_retention_policy(*, ttl_seconds: int, interval_seconds: int) -> None:
+    emit_telemetry(
+        LOGGER,
+        TelemetryEvent.now(
+            TelemetryEventType.RETENTION_POLICY,
+            ttl_seconds=ttl_seconds,
+            interval_seconds=interval_seconds,
+        ),
+    )
 
 
 def _require_complete_initial_retention(result: RetentionSweepResult) -> None:
