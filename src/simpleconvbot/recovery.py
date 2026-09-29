@@ -114,11 +114,24 @@ class StartupRecoveryService:
                 ),
             )
 
-        return StartupRecoveryResult(
+        result = StartupRecoveryResult(
             inflight_queue_items=inflight_queue_items,
             interrupted_failed=failed_count,
             queued_reenqueued=requeued_count,
         )
+        emit_telemetry(
+            LOGGER,
+            TelemetryEvent.now(
+                TelemetryEventType.RECOVERY_SUMMARY,
+                outcome=OperationOutcome.SUCCESS,
+                count=(
+                    result.inflight_queue_items
+                    + result.interrupted_failed
+                    + result.queued_reenqueued
+                ),
+            ),
+        )
+        return result
 
     async def _notify_interrupted(self, job: JobSnapshot) -> None:
         if self._failure_delivery is None:
