@@ -69,7 +69,6 @@ def test_router_registers_help_callback_handler() -> None:
     assert "help" in callback_names
 
 
-
 def test_router_registers_help_message_command() -> None:
     router = create_router()
 
