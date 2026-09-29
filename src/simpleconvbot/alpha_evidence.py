@@ -224,9 +224,6 @@ class _EvidenceAccumulator:
         }
         payload: dict[str, object] = {
             "operations": operations,
-                operation_id: accumulator.to_payload()
-                for operation_id, accumulator in sorted(self.operations.items())
-            },
             "duplicate_updates": {
                 "events": self.duplicate_events,
                 "dropped_total": self.duplicate_count,
