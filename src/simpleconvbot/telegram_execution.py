@@ -106,6 +106,7 @@ def pdf_operation(callback_data: str | None) -> str | None:
     if callback_data is None:
         return None
     return {
+        "ui:pdf:jpg": "pdf.to_jpeg_images",
         "ui:pdf:png": "pdf.to_images",
         "ui:pdf:split": "pdf.extract_pages",
     }.get(callback_data)
@@ -196,7 +197,17 @@ class TelegramPdfExecutor(OperationExecutor):
 
         try:
             if operation.operation_id == "pdf.to_images":
-                result = await self._render_single_pdf(job, workspace)
+                result = await self._render_single_pdf(
+                    job,
+                    workspace,
+                    output_format=ImageOutputFormat.PNG,
+                )
+            elif operation.operation_id == "pdf.to_jpeg_images":
+                result = await self._render_single_pdf(
+                    job,
+                    workspace,
+                    output_format=ImageOutputFormat.JPEG,
+                )
             elif operation.operation_id == "pdf.from_images":
                 result = await self._images_to_pdf(job, workspace)
             elif operation.operation_id == "pdf.merge":
@@ -217,6 +228,8 @@ class TelegramPdfExecutor(OperationExecutor):
         self,
         job: JobSnapshot,
         workspace: Path,
+        *,
+        output_format: ImageOutputFormat,
     ) -> ExecutionResult:
         source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
         info = await to_thread(self._engine.inspect, source)
@@ -226,7 +239,12 @@ class TelegramPdfExecutor(OperationExecutor):
                 "Telegram PDF rendering exceeds the page fan-out limit",
             )
         output_dir = workspace / "pages"
-        rendered = await to_thread(self._engine.render_pages, source, output_dir)
+        rendered = await to_thread(
+            self._engine.render_pages,
+            source,
+            output_dir,
+            output_format=output_format,
+        )
         refs = tuple(str(path) for path in rendered.output_paths)
         if not refs:
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
