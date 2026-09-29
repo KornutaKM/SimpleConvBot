@@ -37,11 +37,12 @@ from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.services import JobService, StartJobRequest
 from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telemetry import (
+    OperationMetricRecorder,
     OperationOutcome,
     OperationStage,
     TelemetryEvent,
     TelemetryEventType,
-    emit_telemetry,
+    emit_operation_telemetry,
     opaque_correlation_id,
 )
 from simpleconvbot.ui import operation_accepted_text, operation_duplicate_text
@@ -118,9 +119,16 @@ def video_operation(callback_data: str | None) -> str | None:
 
 
 class TelegramImageExecutor(OperationExecutor):
-    def __init__(self, storage: LocalTemporaryStorage, engine: ImageEngine | None = None) -> None:
+    def __init__(
+        self,
+        storage: LocalTemporaryStorage,
+        engine: ImageEngine | None = None,
+        *,
+        metrics: OperationMetricRecorder | None = None,
+    ) -> None:
         self._storage = storage
         self._engine = engine or ImageEngine()
+        self._metrics = metrics
 
     async def execute(
         self,
@@ -144,16 +152,23 @@ class TelegramImageExecutor(OperationExecutor):
             )
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
-            _emit_failure(job, started, exc)
+            _emit_failure(job, started, exc, self._metrics)
             raise
-        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started)
+        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started, metrics=self._metrics)
         return ExecutionResult(output_ref=str(destination))
 
 
 class TelegramPdfExecutor(OperationExecutor):
-    def __init__(self, storage: LocalTemporaryStorage, engine: PdfEngine | None = None) -> None:
+    def __init__(
+        self,
+        storage: LocalTemporaryStorage,
+        engine: PdfEngine | None = None,
+        *,
+        metrics: OperationMetricRecorder | None = None,
+    ) -> None:
         self._storage = storage
         self._engine = engine or PdfEngine()
+        self._metrics = metrics
 
     async def execute(
         self,
@@ -176,10 +191,10 @@ class TelegramPdfExecutor(OperationExecutor):
                 raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
-            _emit_failure(job, started, exc)
+            _emit_failure(job, started, exc, self._metrics)
             raise
 
-        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started)
+        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started, metrics=self._metrics)
         return result
 
     async def _render_single_pdf(
@@ -226,9 +241,16 @@ class TelegramPdfExecutor(OperationExecutor):
 
 
 class TelegramMediaExecutor(OperationExecutor):
-    def __init__(self, storage: LocalTemporaryStorage, engine: MediaEngine | None = None) -> None:
+    def __init__(
+        self,
+        storage: LocalTemporaryStorage,
+        engine: MediaEngine | None = None,
+        *,
+        metrics: OperationMetricRecorder | None = None,
+    ) -> None:
         self._storage = storage
         self._engine = engine
+        self._metrics = metrics
 
     async def execute(
         self,
@@ -248,10 +270,10 @@ class TelegramMediaExecutor(OperationExecutor):
             await _execute_media(engine, source, destination, operation.operation_id)
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
-            _emit_failure(job, started, exc)
+            _emit_failure(job, started, exc, self._metrics)
             raise
 
-        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started)
+        _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started, metrics=self._metrics)
         return ExecutionResult(output_ref=str(destination))
 
     async def _media_destination(self, job: JobSnapshot, operation_id: str) -> Path:
@@ -277,11 +299,12 @@ class TelegramOperationExecutor(OperationExecutor):
         image: TelegramImageExecutor | None = None,
         pdf: TelegramPdfExecutor | None = None,
         media: TelegramMediaExecutor | None = None,
+        metrics: OperationMetricRecorder | None = None,
     ) -> None:
         self._executors: dict[str, OperationExecutor] = {
-            "image": image or TelegramImageExecutor(storage),
-            "pdf": pdf or TelegramPdfExecutor(storage),
-            "media": media or TelegramMediaExecutor(storage),
+            "image": image or TelegramImageExecutor(storage, metrics=metrics),
+            "pdf": pdf or TelegramPdfExecutor(storage, metrics=metrics),
+            "media": media or TelegramMediaExecutor(storage, metrics=metrics),
         }
 
     async def execute(
@@ -301,9 +324,11 @@ class TelegramDelivery(DeliveryPort):
         self,
         bot: Bot,
         locale_store: RedisUserLocaleStore | None = None,
+        metrics: OperationMetricRecorder | None = None,
     ) -> None:
         self._bot = bot
         self._locale_store = locale_store
+        self._metrics = metrics
 
     async def deliver(self, job: JobSnapshot, result: ExecutionResult) -> None:
         started = monotonic()
@@ -322,9 +347,16 @@ class TelegramDelivery(DeliveryPort):
                 OperationOutcome.FAILURE,
                 started,
                 error_code=UserErrorCode.TELEGRAM_UPLOAD_FAILED.value,
+                metrics=self._metrics,
             )
             raise UserFacingError(UserErrorCode.TELEGRAM_UPLOAD_FAILED.value) from exc
-        _emit(job, OperationStage.UPLOAD, OperationOutcome.SUCCESS, started)
+        _emit(
+            job,
+            OperationStage.UPLOAD,
+            OperationOutcome.SUCCESS,
+            started,
+            metrics=self._metrics,
+        )
 
     async def deliver_failure(self, job: JobSnapshot, error_code: str) -> None:
         locale = await _stored_locale(self._locale_store, job.user_id)
@@ -346,12 +378,14 @@ class TelegramExecutionGateway:
         storage: LocalTemporaryStorage,
         rate_limiter: RedisUpdateRateLimiter,
         locale_store: RedisUserLocaleStore | None = None,
+        metrics: OperationMetricRecorder | None = None,
     ) -> None:
         self._bot = bot
         self._jobs = jobs
         self._storage = storage
         self._rate_limiter = rate_limiter
         self._locale_store = locale_store
+        self._metrics = metrics
 
     async def start_image(
         self,
@@ -422,8 +456,22 @@ class TelegramExecutionGateway:
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
             await self._storage.cleanup_workspace(job.job_id)
+            _emit(
+                job,
+                OperationStage.VALIDATION,
+                OperationOutcome.FAILURE,
+                started,
+                error_code=UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value,
+                metrics=self._metrics,
+            )
             raise UserFacingError(UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value) from exc
-        _emit(job, OperationStage.VALIDATION, OperationOutcome.SUCCESS, started)
+        _emit(
+            job,
+            OperationStage.VALIDATION,
+            OperationOutcome.SUCCESS,
+            started,
+            metrics=self._metrics,
+        )
 
 
 async def _remember_locale(
@@ -499,13 +547,19 @@ def _image_request(operation_id: str) -> tuple[ImageOutputFormat, CompressionPre
     raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
 
 
-def _emit_failure(job: JobSnapshot, started: float, exc: Exception) -> None:
+def _emit_failure(
+    job: JobSnapshot,
+    started: float,
+    exc: Exception,
+    metrics: OperationMetricRecorder | None = None,
+) -> None:
     _emit(
         job,
         OperationStage.WORKER,
         OperationOutcome.FAILURE,
         started,
         error_code=_error_code(exc),
+        metrics=metrics,
     )
 
 
@@ -516,8 +570,9 @@ def _emit(
     started: float,
     *,
     error_code: str | None = None,
+    metrics: OperationMetricRecorder | None = None,
 ) -> None:
-    emit_telemetry(
+    emit_operation_telemetry(
         LOGGER,
         TelemetryEvent.now(
             TelemetryEventType.OPERATION_STAGE,
@@ -528,6 +583,7 @@ def _emit(
             error_code=error_code,
             correlation_id=opaque_correlation_id(job.job_id),
         ),
+        metrics,
     )
 
 
