@@ -1,23 +1,35 @@
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import pytest
+from aiogram import Bot
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
 from simpleconvbot.jobs import JobSnapshot, JobState
+from simpleconvbot.localization import UserErrorCode
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition
-from simpleconvbot.storage import LocalTemporaryStorage
+from simpleconvbot.redis_security import RedisUpdateRateLimiter
+from simpleconvbot.services import JobService
+from simpleconvbot.storage import (
+    LocalTemporaryStorage,
+    StorageErrorCode,
+    StorageSecurityError,
+)
 from simpleconvbot.telegram_execution import (
+    TelegramExecutionGateway,
+    TelegramFile,
     TelegramImageExecutor,
     TelegramPdfExecutor,
     UserFacingError,
     audio_operation,
     image_operation,
     pdf_operation,
+    telegram_download_error_code,
     video_operation,
 )
 from simpleconvbot.telemetry import OperationStage
@@ -221,3 +233,53 @@ async def _image_executor_records_aggregate_worker_metric(tmp_path: Path) -> Non
     assert worker_metrics[0].total == 1
     assert worker_metrics[0].succeeded == 1
     assert worker_metrics[0].failed == 0
+
+
+def test_download_error_mapping_preserves_bounded_storage_identity() -> None:
+    quota = StorageSecurityError(
+        StorageErrorCode.QUOTA_EXCEEDED,
+        "workspace quota exceeded",
+    )
+    tampered = StorageSecurityError(
+        StorageErrorCode.WORKSPACE_TAMPERED,
+        "workspace tampered",
+    )
+
+    assert (
+        telegram_download_error_code(quota)
+        == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
+    )
+    assert telegram_download_error_code(tampered) == StorageErrorCode.WORKSPACE_TAMPERED.value
+    assert (
+        telegram_download_error_code(RuntimeError("provider unavailable"))
+        == UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value
+    )
+
+
+def test_single_file_download_rejects_known_oversize_before_provider_io(
+    tmp_path: Path,
+) -> None:
+    asyncio.run(_single_file_download_rejects_known_oversize_before_provider_io(tmp_path))
+
+
+async def _single_file_download_rejects_known_oversize_before_provider_io(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "jobs"
+    storage = LocalTemporaryStorage(root, max_workspace_bytes=10)
+    gateway = TelegramExecutionGateway(
+        bot=cast(Bot, object()),
+        jobs=cast(JobService, object()),
+        storage=storage,
+        rate_limiter=cast(RedisUpdateRateLimiter, object()),
+    )
+    job = _job("image.to_png")
+
+    with pytest.raises(UserFacingError) as caught:
+        await gateway._download(
+            job,
+            TelegramFile(file_id="provider-ref", file_size=11),
+        )
+
+    assert caught.value.code == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
+    assert not (root / str(job.job_id)).exists()
