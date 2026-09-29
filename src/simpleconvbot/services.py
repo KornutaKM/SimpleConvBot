@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
@@ -55,7 +56,12 @@ class JobService:
         self._queue = queue
         self._registry = registry
 
-    async def start_operation(self, request: StartJobRequest) -> StartJobResult:
+    async def start_operation(
+        self,
+        request: StartJobRequest,
+        *,
+        prepare: Callable[[JobSnapshot], Awaitable[None]] | None = None,
+    ) -> StartJobResult:
         job, created = await self._repository.create_or_get(
             CreateJob(
                 idempotency_key=request.idempotency_key,
@@ -77,6 +83,8 @@ class JobService:
         if job.state is JobState.VALIDATING:
             try:
                 self._registry.get(job.operation_id, job.operation_version)
+                if prepare is not None:
+                    await prepare(job)
             except UnknownOperation:
                 job = await self._repository.transition(
                     job.job_id,
@@ -84,6 +92,13 @@ class JobService:
                     JobState.REJECTED,
                 )
                 return StartJobResult(job=job, created=created)
+            except Exception:
+                job = await self._repository.transition(
+                    job.job_id,
+                    JobState.VALIDATING,
+                    JobState.FAILED,
+                )
+                raise
             job = await self._repository.transition(
                 job.job_id,
                 JobState.VALIDATING,

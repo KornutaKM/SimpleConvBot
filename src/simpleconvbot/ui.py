@@ -37,6 +37,7 @@ CATEGORY_TITLES: dict[str, str] = {
 
 IMAGE_ACTION_TITLES: dict[str, str] = {
     "ui:image:jpg": "JPG",
+    "ui:image:png": "PNG",
     "ui:image:webp": "WebP",
     "ui:image:pdf": "PDF",
     "ui:image:compress": "Сжатие",
@@ -116,6 +117,7 @@ def image_actions_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 _button("JPG", "ui:image:jpg"),
+                _button("PNG", "ui:image:png"),
                 _button("WebP", "ui:image:webp"),
                 _button("PDF", "ui:image:pdf"),
             ],
