@@ -22,6 +22,7 @@ from simpleconvbot.ui import (
     pdf_actions_keyboard,
     pdf_card,
     settings_text,
+    send_file_hint,
     tools_keyboard,
     video_actions_keyboard,
     welcome_text,
