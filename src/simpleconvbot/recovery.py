@@ -93,7 +93,9 @@ class StartupRecoveryService:
             await self._storage.cleanup_workspace(job.job_id)
             failed = await self._repository.transition(job.job_id, job.state, JobState.FAILED)
             failed_count += 1
-            _emit_recovery(failed, OperationOutcome.FAILURE, UserErrorCode.RESTART_INTERRUPTED.value)
+            _emit_recovery(
+                failed, OperationOutcome.FAILURE, UserErrorCode.RESTART_INTERRUPTED.value
+            )
             await self._notify_interrupted(failed)
 
         requeued_count = 0
