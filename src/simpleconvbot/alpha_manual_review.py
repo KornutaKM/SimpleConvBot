@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -204,8 +205,14 @@ def main(argv: list[str] | None = None) -> int:
             runtime_identity=args.runtime_id,
         )
         save_review(args.output, review)
-        json.dump(review_summary(review, expected_commit=review["commit_sha"]), print_stream := __import__("sys").stdout, ensure_ascii=False, indent=2, sort_keys=True)
-        print_stream.write("\n")
+        json.dump(
+            review_summary(review, expected_commit=cast(str, review["commit_sha"])),
+            sys.stdout,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        sys.stdout.write("\n")
         return 0
 
     review = load_review(args.input)
@@ -214,8 +221,8 @@ def main(argv: list[str] | None = None) -> int:
         save_review(args.input, review)
 
     summary = review_summary(review, expected_commit=current_git_commit())
-    json.dump(summary, __import__("sys").stdout, ensure_ascii=False, indent=2, sort_keys=True)
-    __import__("sys").stdout.write("\n")
+    json.dump(summary, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
+    sys.stdout.write("\n")
     return 0
 
 
