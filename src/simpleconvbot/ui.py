@@ -15,8 +15,8 @@ SETTINGS_CALLBACK = "ui:settings"
 
 WELCOME_TEXT = (
     "⚡ <b>SimpleConv</b>\n\n"
-    "Отправь файл, фото, видео, аудио, текст или число — "
-    "я сам определю формат и покажу доступные действия."
+    "Отправьте файл, фото, видео или аудио — "
+    "я определю формат и покажу доступные действия."
 )
 TOOLS_TEXT = "🧰 <b>Все инструменты</b>\n\nВыберите категорию\nили просто отправьте файл."
 SETTINGS_TEXT = "⚙️ <b>Настройки</b>\n\nЯзык интерфейса определяется языком Telegram."
@@ -123,7 +123,7 @@ def welcome_text(locale: Locale) -> str:
         WELCOME_TEXT,
         (
             "⚡ <b>SimpleConv</b>\n\n"
-            "Send a file, photo, video, audio, text, or number — "
+            "Send a file, photo, video, or audio — "
             "I’ll detect the format and show the available actions."
         ),
     )
@@ -197,7 +197,7 @@ def home_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 _button(
-                    _pick(locale, "📎 Отправить файл", "📎 Send a file"),
+                    _pick(locale, "📎 Как отправить файл", "📎 How to send a file"),
                     SEND_FILE_CALLBACK,
                 )
             ],
@@ -552,8 +552,14 @@ def source_unavailable_text(locale: Locale) -> str:
 def send_file_hint(locale: Locale) -> str:
     return _pick(
         locale,
-        "Нажмите скрепку Telegram рядом с полем сообщения и выберите файл.",
-        ("Tap the Telegram attachment button next to the message field and choose a file."),
+        (
+            "Чтобы отправить файл, нажмите скрепку Telegram рядом с полем сообщения "
+            "и выберите файл, фото, видео или аудио."
+        ),
+        (
+            "To send a file, tap the Telegram attachment button next to the message field "
+            "and choose a file, photo, video, or audio."
+        ),
     )
 
 
