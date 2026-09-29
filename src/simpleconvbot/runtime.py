@@ -11,7 +11,9 @@ from simpleconvbot.config import Settings, SettingsError
 from simpleconvbot.gateway import create_dispatcher
 from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobAdmissionPolicy
+from simpleconvbot.media_operations import MEDIA_OPERATIONS
 from simpleconvbot.operations import OperationRegistry
+from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.postgres import (
     PostgresJobRepository,
     PostgresUpdateReceiptStore,
@@ -26,7 +28,7 @@ from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import (
     TelegramDelivery,
     TelegramExecutionGateway,
-    TelegramImageExecutor,
+    TelegramOperationExecutor,
 )
 
 
@@ -46,19 +48,16 @@ async def run_polling(settings: Settings | None = None) -> None:
         current.temp_root,
         max_workspace_bytes=current.workspace_max_bytes,
     )
-    registry = OperationRegistry(IMAGE_OPERATIONS)
+    registry = OperationRegistry((*IMAGE_OPERATIONS, *PDF_OPERATIONS, *MEDIA_OPERATIONS))
     queue = RedisJobQueue(redis_client)
-    jobs = JobService(
-        PostgresJobRepository(
-            sessions,
-            JobAdmissionPolicy(
-                max_active_per_user=current.max_active_jobs_per_user,
-                max_active_global=current.max_active_jobs_global,
-            ),
+    repository = PostgresJobRepository(
+        sessions,
+        JobAdmissionPolicy(
+            max_active_per_user=current.max_active_jobs_per_user,
+            max_active_global=current.max_active_jobs_global,
         ),
-        queue,
-        registry,
     )
+    jobs = JobService(repository, queue, registry)
     execution = TelegramExecutionGateway(
         bot=bot,
         jobs=jobs,
@@ -69,14 +68,16 @@ async def run_polling(settings: Settings | None = None) -> None:
         ),
     )
     dispatcher = create_dispatcher(PostgresUpdateReceiptStore(sessions), execution)
+    delivery = TelegramDelivery(bot)
     worker = QueueWorker(
         queue,
         JobWorker(
-            PostgresJobRepository(sessions),
+            repository,
             registry,
             storage,
-            TelegramImageExecutor(storage),
-            TelegramDelivery(bot),
+            TelegramOperationExecutor(storage),
+            delivery,
+            failure_delivery=delivery,
         ),
     )
     stop_worker = Event()

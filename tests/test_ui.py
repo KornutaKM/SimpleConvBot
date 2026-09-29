@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup
 
 from simpleconvbot.ui import (
+    AUDIO_ACTION_TITLES,
     CATEGORY_TITLES,
     HOME_CALLBACK,
     IMAGE_ACTION_TITLES,
@@ -8,12 +9,15 @@ from simpleconvbot.ui import (
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
     TOOLS_CALLBACK,
+    VIDEO_ACTION_TITLES,
+    audio_actions_keyboard,
     format_file_size,
     home_keyboard,
     image_actions_keyboard,
     image_document_card,
     pdf_actions_keyboard,
     tools_keyboard,
+    video_actions_keyboard,
 )
 
 
@@ -53,6 +57,22 @@ def test_pdf_action_keyboard_uses_fixed_callback_identities() -> None:
     callback_data = _callback_data(pdf_actions_keyboard())
 
     assert set(PDF_ACTION_TITLES) <= callback_data
+    assert TOOLS_CALLBACK in callback_data
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_audio_action_keyboard_uses_fixed_callback_identities() -> None:
+    callback_data = _callback_data(audio_actions_keyboard())
+
+    assert set(AUDIO_ACTION_TITLES) <= callback_data
+    assert TOOLS_CALLBACK in callback_data
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_video_action_keyboard_uses_fixed_callback_identities() -> None:
+    callback_data = _callback_data(video_actions_keyboard())
+
+    assert set(VIDEO_ACTION_TITLES) <= callback_data
     assert TOOLS_CALLBACK in callback_data
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 

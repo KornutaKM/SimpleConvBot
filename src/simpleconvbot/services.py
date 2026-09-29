@@ -16,6 +16,7 @@ from simpleconvbot.jobs import (
 from simpleconvbot.operations import OperationRegistry, UnknownOperation
 from simpleconvbot.ports import (
     DeliveryPort,
+    FailureDeliveryPort,
     JobQueue,
     JobRepository,
     OperationExecutor,
@@ -125,12 +126,14 @@ class JobWorker:
         storage: TemporaryStorage,
         executor: OperationExecutor,
         delivery: DeliveryPort,
+        failure_delivery: FailureDeliveryPort | None = None,
     ) -> None:
         self._repository = repository
         self._registry = registry
         self._storage = storage
         self._executor = executor
         self._delivery = delivery
+        self._failure_delivery = failure_delivery
 
     async def process(self, job_id: UUID) -> WorkerOutcome:
         job = await self._repository.get(job_id)
@@ -162,17 +165,25 @@ class JobWorker:
                 JobState.UPLOADING,
                 JobState.COMPLETED,
             )
-        except Exception:
+        except Exception as exc:
             with suppress(Exception):
                 await self._storage.cleanup_workspace(job_id)
 
             current = await self._repository.get(job_id)
+            failed = current
             if can_transition(current.state, JobState.FAILED):
                 with suppress(InvalidTransition):
-                    await self._repository.transition(
+                    failed = await self._repository.transition(
                         job_id,
                         current.state,
                         JobState.FAILED,
+                    )
+
+            if self._failure_delivery is not None:
+                with suppress(Exception):
+                    await self._failure_delivery.deliver_failure(
+                        failed,
+                        _exception_code(exc),
                     )
             return WorkerOutcome.FAILED
 
@@ -191,3 +202,9 @@ class QueueWorker:
         await self._worker.process(job_id)
         await self._queue.ack(job_id)
         return True
+
+
+def _exception_code(exc: Exception) -> str:
+    code = getattr(exc, "code", "internal_error")
+    value = getattr(code, "value", code)
+    return value if isinstance(value, str) else "internal_error"

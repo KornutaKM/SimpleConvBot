@@ -15,8 +15,16 @@ from aiogram.types import (
 )
 
 from simpleconvbot.ports import UpdateReceiptStore
-from simpleconvbot.telegram_execution import TelegramExecutionGateway, image_operation
+from simpleconvbot.telegram_execution import (
+    TelegramExecutionGateway,
+    audio_operation,
+    image_operation,
+    pdf_operation,
+    video_operation,
+)
 from simpleconvbot.ui import (
+    AUDIO_ACTION_TITLES,
+    AUDIO_CATEGORY_TEXT,
     CATEGORY_TITLES,
     DOCUMENT_CATEGORY_TEXT,
     HOME_CALLBACK,
@@ -28,7 +36,11 @@ from simpleconvbot.ui import (
     SETTINGS_TEXT,
     TOOLS_CALLBACK,
     TOOLS_TEXT,
+    VIDEO_ACTION_TITLES,
+    VIDEO_CATEGORY_TEXT,
     WELCOME_TEXT,
+    audio_actions_keyboard,
+    audio_card,
     category_back_keyboard,
     category_placeholder_text,
     home_keyboard,
@@ -43,6 +55,8 @@ from simpleconvbot.ui import (
     settings_keyboard,
     tools_keyboard,
     unsupported_document_card,
+    video_actions_keyboard,
+    video_card,
 )
 
 Handler = Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]]
@@ -74,6 +88,20 @@ async def _edit_callback_message(
         return
     await message.edit_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     await callback.answer()
+
+
+async def _execute_callback(
+    callback: CallbackQuery,
+    execution: TelegramExecutionGateway | None,
+    operation_id: str | None,
+) -> None:
+    message = callback.message
+    source = message.reply_to_message if isinstance(message, Message) else None
+    if execution is None or not isinstance(source, Message) or operation_id is None:
+        await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
+        return
+    await callback.answer()
+    await execution.start_operation(source, operation_id)
 
 
 def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
@@ -140,12 +168,25 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
                 image_actions_keyboard(),
             )
             return
-
         if callback_data == "ui:cat:document":
             await _edit_callback_message(
                 callback,
                 DOCUMENT_CATEGORY_TEXT,
                 pdf_actions_keyboard(),
+            )
+            return
+        if callback_data == "ui:cat:audio":
+            await _edit_callback_message(
+                callback,
+                AUDIO_CATEGORY_TEXT,
+                audio_actions_keyboard(),
+            )
+            return
+        if callback_data == "ui:cat:video":
+            await _edit_callback_message(
+                callback,
+                VIDEO_CATEGORY_TEXT,
+                video_actions_keyboard(),
             )
             return
 
@@ -163,14 +204,19 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
         F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp", "ui:image:compress"})
     )
     async def execute_image_action(callback: CallbackQuery) -> None:
-        operation_id = image_operation(callback.data)
-        message = callback.message
-        source = message.reply_to_message if isinstance(message, Message) else None
-        if execution is None or not isinstance(source, Message) or operation_id is None:
-            await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
-            return
-        await callback.answer()
-        await execution.start_image(source, operation_id)
+        await _execute_callback(callback, execution, image_operation(callback.data))
+
+    @router.callback_query(F.data == "ui:pdf:png")
+    async def execute_pdf_action(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, pdf_operation(callback.data))
+
+    @router.callback_query(F.data.in_(set(AUDIO_ACTION_TITLES)))
+    async def execute_audio_action(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, audio_operation(callback.data))
+
+    @router.callback_query(F.data.in_(set(VIDEO_ACTION_TITLES)))
+    async def execute_video_action(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, video_operation(callback.data))
 
     @router.callback_query(F.data.startswith("ui:image:"))
     async def image_action(callback: CallbackQuery) -> None:
@@ -216,6 +262,28 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
             parse_mode=ParseMode.HTML,
         )
 
+    @router.message(F.audio)
+    async def audio_received(message: Message) -> None:
+        audio = message.audio
+        if audio is None:
+            return
+        await message.reply(
+            audio_card(audio.file_name, audio.file_size),
+            reply_markup=audio_actions_keyboard(),
+            parse_mode=ParseMode.HTML,
+        )
+
+    @router.message(F.video)
+    async def video_received(message: Message) -> None:
+        video = message.video
+        if video is None:
+            return
+        await message.reply(
+            video_card(video.file_name, video.file_size),
+            reply_markup=video_actions_keyboard(),
+            parse_mode=ParseMode.HTML,
+        )
+
     @router.message(F.document)
     async def document_received(message: Message) -> None:
         document = message.document
@@ -239,6 +307,22 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
                     document.file_size,
                 ),
                 reply_markup=image_actions_keyboard(),
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        if mime_type is not None and mime_type.startswith("audio/"):
+            await message.reply(
+                audio_card(document.file_name, document.file_size),
+                reply_markup=audio_actions_keyboard(),
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        if mime_type is not None and mime_type.startswith("video/"):
+            await message.reply(
+                video_card(document.file_name, document.file_size),
+                reply_markup=video_actions_keyboard(),
                 parse_mode=ParseMode.HTML,
             )
             return

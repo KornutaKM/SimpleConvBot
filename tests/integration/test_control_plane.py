@@ -64,6 +64,15 @@ class RecordingDelivery:
         self.outputs.append(result.output_ref)
 
 
+class RecordingFailureDelivery:
+    def __init__(self) -> None:
+        self.error_codes: list[str] = []
+
+    async def deliver_failure(self, job: object, error_code: str) -> None:
+        del job
+        self.error_codes.append(error_code)
+
+
 @pytest.mark.integration
 def test_duplicate_update_and_callback_execute_once() -> None:
     asyncio.run(_duplicate_update_and_callback_execute_once())
@@ -162,12 +171,14 @@ async def _failed_execution_cleans_workspace_and_marks_job_failed() -> None:
             )
         )
 
+        failure_delivery = RecordingFailureDelivery()
         worker = JobWorker(
             repository=repository,
             registry=registry,
             storage=LocalTemporaryStorage(temp_root),
             executor=FailingExecutor(),
             delivery=RecordingDelivery(),
+            failure_delivery=failure_delivery,
         )
         runner = QueueWorker(queue, worker)
 
@@ -176,6 +187,7 @@ async def _failed_execution_cleans_workspace_and_marks_job_failed() -> None:
         final = await repository.get(started.job.job_id)
         assert final.state is JobState.FAILED
         assert not (temp_root / str(started.job.job_id)).exists()
+        assert failure_delivery.error_codes == ["internal_error"]
     finally:
         await redis_client.aclose()
         await engine.dispose()

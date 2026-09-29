@@ -12,6 +12,11 @@ from simpleconvbot.operations import OperationDefinition
 @dataclass(frozen=True, slots=True)
 class ExecutionResult:
     output_ref: str
+    additional_output_refs: tuple[str, ...] = ()
+
+    @property
+    def output_refs(self) -> tuple[str, ...]:
+        return (self.output_ref, *self.additional_output_refs)
 
 
 class UpdateReceiptStore(Protocol):
@@ -58,3 +63,7 @@ class OperationExecutor(Protocol):
 
 class DeliveryPort(Protocol):
     async def deliver(self, job: JobSnapshot, result: ExecutionResult) -> None: ...
+
+
+class FailureDeliveryPort(Protocol):
+    async def deliver_failure(self, job: JobSnapshot, error_code: str) -> None: ...
