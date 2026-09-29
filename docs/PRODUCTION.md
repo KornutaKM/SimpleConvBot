@@ -33,6 +33,7 @@ Keep the current bounded runtime values unless a separately reviewed change
 updates the contract:
 
 - temporary workspace TTL: 3600 seconds;
+- terminal job/update-receipt metadata TTL: 604800 seconds (7 days);
 - retention sweep: 60 seconds;
 - workspace quota: 64 MiB;
 - per-user request rate: 60/minute;
