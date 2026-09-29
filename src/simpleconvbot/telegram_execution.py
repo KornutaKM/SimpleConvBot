@@ -17,7 +17,13 @@ from simpleconvbot.image_engine import (
     ImageTransform,
 )
 from simpleconvbot.jobs import JobAdmissionRejected, JobSnapshot
-from simpleconvbot.localization import (\n    Locale,\n    UserErrorCode,\n    error_text,\n    operation_title,\n    resolve_locale,\n)
+from simpleconvbot.localization import (
+    Locale,
+    UserErrorCode,
+    error_text,
+    operation_title,
+    resolve_locale,
+)
 from simpleconvbot.media_engine import (
     AudioOutputFormat,
     MediaEngine,
@@ -26,7 +32,8 @@ from simpleconvbot.media_engine import (
 from simpleconvbot.operations import OperationDefinition
 from simpleconvbot.pdf_engine import PdfEngine, PdfEngineError, PdfErrorCode
 from simpleconvbot.ports import DeliveryPort, ExecutionResult, OperationExecutor
-from simpleconvbot.redis_locale import RedisUserLocaleStore\nfrom simpleconvbot.redis_security import RedisUpdateRateLimiter
+from simpleconvbot.redis_locale import RedisUserLocaleStore
+from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.services import JobService, StartJobRequest
 from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telemetry import (
