@@ -14,6 +14,7 @@ def test_settings_defaults() -> None:
     assert settings.redis_url == "redis://localhost:6379/0"
     assert settings.temp_root == Path("var/jobs")
     assert settings.temp_ttl_seconds == 3600
+    assert settings.metadata_ttl_seconds == 7 * 24 * 60 * 60
     assert settings.retention_sweep_interval_seconds == 60
     assert settings.diagnostics_interval_seconds == 300
     assert settings.workspace_max_bytes == 64 * 1024 * 1024
@@ -32,6 +33,7 @@ def test_settings_parse_values() -> None:
             "REDIS_URL": "redis://cache:6379/1",
             "TEMP_ROOT": "/tmp/simpleconvbot",
             "TEMP_TTL_SECONDS": "900",
+            "METADATA_TTL_SECONDS": "7200",
             "RETENTION_SWEEP_INTERVAL_SECONDS": "45",
             "DIAGNOSTICS_INTERVAL_SECONDS": "120",
             "WORKSPACE_MAX_BYTES": "12345",
@@ -48,6 +50,7 @@ def test_settings_parse_values() -> None:
     assert settings.redis_url == "redis://cache:6379/1"
     assert settings.temp_root == Path("/tmp/simpleconvbot")
     assert settings.temp_ttl_seconds == 900
+    assert settings.metadata_ttl_seconds == 7200
     assert settings.retention_sweep_interval_seconds == 45
     assert settings.diagnostics_interval_seconds == 120
     assert settings.workspace_max_bytes == 12345
@@ -83,6 +86,7 @@ def test_provider_postgres_urls_use_asyncpg_driver(raw: str, expected: str) -> N
     "name",
     [
         "TEMP_TTL_SECONDS",
+        "METADATA_TTL_SECONDS",
         "RETENTION_SWEEP_INTERVAL_SECONDS",
         "DIAGNOSTICS_INTERVAL_SECONDS",
         "WORKSPACE_MAX_BYTES",
@@ -136,5 +140,17 @@ def test_retention_sweep_interval_cannot_exceed_temp_ttl() -> None:
             {
                 "TEMP_TTL_SECONDS": "60",
                 "RETENTION_SWEEP_INTERVAL_SECONDS": "61",
+            }
+        )
+
+
+
+def test_retention_sweep_interval_cannot_exceed_metadata_ttl() -> None:
+    with pytest.raises(SettingsError, match="must not exceed METADATA_TTL_SECONDS"):
+        Settings.from_mapping(
+            {
+                "TEMP_TTL_SECONDS": "3600",
+                "METADATA_TTL_SECONDS": "30",
+                "RETENTION_SWEEP_INTERVAL_SECONDS": "60",
             }
         )
