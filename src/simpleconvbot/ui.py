@@ -272,11 +272,10 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 
 
 def audio_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
-    del locale
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_button("MP3", "ui:audio:mp3"), _button("M4A", "ui:audio:m4a"), _button("WAV", "ui:audio:wav")],
-            [_button("← Back", TOOLS_CALLBACK)],
+            [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )
 
