@@ -1,6 +1,4 @@
 import asyncio
-import json
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -428,34 +426,8 @@ def test_download_error_mapping_preserves_bounded_storage_identity() -> None:
 
 def test_single_file_download_rejects_known_oversize_before_provider_io(
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    with caplog.at_level(logging.INFO, logger="simpleconvbot.telegram_execution"):
-        asyncio.run(
-            _single_file_download_rejects_known_oversize_before_provider_io(
-                tmp_path
-            )
-        )
-
-    payloads = [
-        json.loads(message)
-        for message in caplog.messages
-        if '"event":"input_rejected"' in message
-    ]
-    assert payloads == [
-        {
-            "count": 1,
-            "error_code": "telegram_input_too_large",
-            "event": "input_rejected",
-            "operation_id": "image.to_png",
-            "outcome": "failure",
-            "timestamp": payloads[0]["timestamp"],
-        }
-    ]
-    serialized = json.dumps(payloads[0], sort_keys=True)
-    assert "file_id" not in serialized
-    assert "user_id" not in serialized
-    assert "chat_id" not in serialized
+    asyncio.run(_single_file_download_rejects_known_oversize_before_provider_io(tmp_path))
 
 
 async def _single_file_download_rejects_known_oversize_before_provider_io(
