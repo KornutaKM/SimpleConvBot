@@ -59,9 +59,7 @@ def new_review(
         "execution_mode": execution_mode,
         "runtime_identity": runtime_identity,
         "updated_at": datetime.now(UTC).isoformat(),
-        "locales": {
-            locale: {check_id: "pending" for check_id in CHECK_IDS} for locale in LOCALES
-        },
+        "locales": {locale: {check_id: "pending" for check_id in CHECK_IDS} for locale in LOCALES},
     }
 
 
@@ -159,10 +157,7 @@ def _validate_review(review: dict[str, object]) -> None:
     if review["execution_mode"] not in {"compose", "host-python"}:
         raise ValueError("invalid execution_mode")
     runtime_identity = review["runtime_identity"]
-    if (
-        not isinstance(runtime_identity, str)
-        or _RUNTIME_ID.fullmatch(runtime_identity) is None
-    ):
+    if not isinstance(runtime_identity, str) or _RUNTIME_ID.fullmatch(runtime_identity) is None:
         raise ValueError("invalid runtime_identity")
     updated_at = review["updated_at"]
     if not isinstance(updated_at, str):
