@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from scripts.bot_profile import main
+
 from simpleconvbot.bot_profile import PRIVACY_URL, PUBLIC_PROFILES
 
 
