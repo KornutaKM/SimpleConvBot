@@ -108,6 +108,12 @@ A failed periodic health probe is observable in the next diagnostic payload but
 does not by itself terminate an already-running bot. Startup dependency health
 is fail-closed.
 
+All runtime log records pass through a final redacting formatter after exception
+traceback formatting. This is intended to prevent third-party exception strings
+from exposing the bot token, PostgreSQL/Redis URLs, Authorization values,
+provider file paths, or filename/file-path fields. The redactor is defense in
+depth; routine logs must still be reviewed during alpha.
+
 ## Deployment settings
 
 Private-alpha settings:
