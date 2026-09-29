@@ -21,6 +21,8 @@ SETTINGS_TEXT = "⚙️ <b>Настройки</b>\n\nПока здесь тол�
 
 IMAGE_CATEGORY_TEXT = "🖼 <b>Изображения</b>\n\nПопулярные действия:"
 DOCUMENT_CATEGORY_TEXT = "📄 <b>Документы</b>\n\nПопулярные действия:"
+AUDIO_CATEGORY_TEXT = "🎵 <b>Аудио</b>\n\nДоступные преобразования:"
+VIDEO_CATEGORY_TEXT = "🎬 <b>Видео</b>\n\nДоступные преобразования:"
 
 CATEGORY_TITLES: dict[str, str] = {
     "ui:cat:image": "🖼 Изображения",
@@ -55,6 +57,19 @@ PDF_ACTION_TITLES: dict[str, str] = {
     "ui:pdf:compress": "Сжать PDF",
     "ui:pdf:info": "Информация о PDF",
     "ui:pdf:more": "Другие действия",
+}
+
+AUDIO_ACTION_TITLES: dict[str, str] = {
+    "ui:audio:mp3": "MP3",
+    "ui:audio:m4a": "M4A",
+    "ui:audio:wav": "WAV",
+}
+
+VIDEO_ACTION_TITLES: dict[str, str] = {
+    "ui:video:mp3": "Извлечь MP3",
+    "ui:video:mute": "Убрать звук",
+    "ui:video:gif": "GIF",
+    "ui:video:compress": "Сжать",
 }
 
 
@@ -156,6 +171,35 @@ def pdf_actions_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def audio_actions_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button("MP3", "ui:audio:mp3"),
+                _button("M4A", "ui:audio:m4a"),
+                _button("WAV", "ui:audio:wav"),
+            ],
+            [_button("← Назад", TOOLS_CALLBACK)],
+        ]
+    )
+
+
+def video_actions_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button("🎵 MP3", "ui:video:mp3"),
+                _button("🔇 Без звука", "ui:video:mute"),
+            ],
+            [
+                _button("🎞 GIF", "ui:video:gif"),
+                _button("🗜 Сжать", "ui:video:compress"),
+            ],
+            [_button("← Назад", TOOLS_CALLBACK)],
+        ]
+    )
+
+
 def category_back_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_button("← Все инструменты", TOOLS_CALLBACK)]])
 
@@ -193,6 +237,16 @@ def image_document_card(filename: str | None, mime_type: str | None, size: int |
 def pdf_card(filename: str | None, size: int | None) -> str:
     safe_name = escape(filename or "document.pdf")
     return f"📄 <b>{safe_name}</b>\nPDF • {format_file_size(size)}\n\n<b>Что сделать?</b>"
+
+
+def audio_card(filename: str | None, size: int | None) -> str:
+    safe_name = escape(filename or "Аудиофайл")
+    return f"🎵 <b>{safe_name}</b>\n{format_file_size(size)}\n\n<b>Что сделать?</b>"
+
+
+def video_card(filename: str | None, size: int | None) -> str:
+    safe_name = escape(filename or "Видео")
+    return f"🎬 <b>{safe_name}</b>\n{format_file_size(size)}\n\n<b>Что сделать?</b>"
 
 
 def unsupported_document_card(
