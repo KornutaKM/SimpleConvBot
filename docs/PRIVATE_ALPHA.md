@@ -126,10 +126,23 @@ After a local Compose run, generate the bounded evidence summary directly from l
 docker compose logs --since=10m app | python scripts/alpha_evidence.py
 ```
 
+For a machine-verifiable gate check, use:
+
+```powershell
+docker compose logs --since=10m app | python scripts/alpha_evidence.py --require-runtime-gates
+$LASTEXITCODE
+```
+
+Exit code `0` means every machine-verifiable runtime gate in the summary is PASS.
+Exit code `2` means at least one such gate is still PENDING. This does not replace the
+separate RU/EN user-visible review, which remains listed under
+`runtime_gates.manual_review_remaining`.
+
 The summarizer emits only allowlisted aggregate fields. It counts complete correlated E2E
 operation runs, multi-file E2E runs, duplicate-update suppression, bounded input rejections,
-startup recovery summaries, effective retention policy, retention cleanup, current health
-readiness, and the latest aggregate failure classes. It never
+startup recovery summaries with interrupted/requeued classification, effective retention
+policy, retention cleanup, current health readiness, gate PASS/PENDING status, and the
+latest aggregate failure classes. It never
 echoes raw log lines or unknown payload fields.
 
 Before public launch, use the aggregate failure-class counters from

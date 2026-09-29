@@ -152,6 +152,9 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
         "summary_events": 2,
         "clean_summary_events": 1,
         "actions_total": 3,
+        "inflight_queue_items": 0,
+        "interrupted_failed": 0,
+        "queued_reenqueued": 0,
     }
     assert summary["retention_cleanup"] == {
         "events": 2,
@@ -210,3 +213,135 @@ def test_cli_reads_log_file_and_writes_only_summary(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["duplicate_updates"] == {"events": 1, "dropped_total": 2}
+
+
+def test_runtime_gate_evaluator_requires_specific_recovery_and_cleanup_evidence() -> None:
+    lines: list[str] = []
+
+    for operation_id, correlation_id in (
+        ("pdf.from_images", "1111111111111111"),
+        ("pdf.merge", "2222222222222222"),
+        ("image.to_png", "3333333333333333"),
+    ):
+        lines.append(
+            _log(
+                {
+                    "event": "operation_stage",
+                    "operation_id": operation_id,
+                    "stage": "validation",
+                    "outcome": "success",
+                    "duration_ms": 1,
+                    "correlation_id": correlation_id,
+                    "count": 2 if operation_id.startswith("pdf.") else None,
+                }
+            )
+        )
+        for stage in ("queue", "worker", "upload", "cleanup"):
+            lines.append(
+                _log(
+                    {
+                        "event": "operation_stage",
+                        "operation_id": operation_id,
+                        "stage": stage,
+                        "outcome": "success",
+                        "duration_ms": 1,
+                        "correlation_id": correlation_id,
+                    }
+                )
+            )
+
+    lines.extend(
+        [
+            _log(
+                {
+                    "event": "operation_stage",
+                    "operation_id": "video.compress",
+                    "stage": "worker",
+                    "outcome": "failure",
+                    "duration_ms": 2,
+                    "error_code": "media_timeout",
+                    "correlation_id": "4444444444444444",
+                }
+            ),
+            _log(
+                {
+                    "event": "operation_stage",
+                    "operation_id": "video.compress",
+                    "stage": "cleanup",
+                    "outcome": "success",
+                    "duration_ms": 1,
+                    "correlation_id": "4444444444444444",
+                }
+            ),
+            _log({"event": "update_deduplicated", "outcome": "success", "count": 1}),
+            _log(
+                {
+                    "event": "input_rejected",
+                    "outcome": "failure",
+                    "error_code": "unsupported_document",
+                    "count": 1,
+                }
+            ),
+            _log(
+                {
+                    "event": "input_rejected",
+                    "operation_id": "image.to_png",
+                    "outcome": "failure",
+                    "error_code": "telegram_input_too_large",
+                    "count": 1,
+                }
+            ),
+            _log(
+                {
+                    "event": "recovery",
+                    "operation_id": "image.to_png",
+                    "outcome": "failure",
+                    "error_code": "restart_interrupted",
+                    "correlation_id": "5555555555555555",
+                }
+            ),
+            _log({"event": "recovery_summary", "outcome": "success", "count": 1}),
+            _log({"event": "retention_policy", "ttl_seconds": 3600, "interval_seconds": 60}),
+            _log({"event": "cleanup", "outcome": "success", "count": 1}),
+            _log(
+                {
+                    "event": "admin_diagnostic",
+                    "health": {"ready": True},
+                    "metrics": {"failure_classes": []},
+                }
+            ),
+        ]
+    )
+
+    summary = summarize_lines(lines)
+
+    recovery = _mapping(summary["recovery"])
+    assert recovery["interrupted_failed"] == 1
+    assert recovery["queued_reenqueued"] == 0
+    assert recovery["inflight_queue_items"] == 0
+
+    gates = _mapping(summary["runtime_gates"])
+    assert gates["machine_verifiable_ready"] is True
+    checks = _mapping(gates["checks"])
+    assert all(_mapping(value)["status"] == "PASS" for value in checks.values())
+    assert gates["manual_review_remaining"] == [
+        "russian_ux_coverage",
+        "english_ux_coverage",
+    ]
+
+
+def test_cli_require_runtime_gates_returns_two_when_evidence_is_incomplete(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = tmp_path / "runtime.log"
+    source.write_text(
+        _log({"event": "update_deduplicated", "outcome": "success", "count": 1}),
+        encoding="utf-8",
+    )
+
+    assert main(["--input", str(source), "--require-runtime-gates"]) == 2
+
+    payload = json.loads(capsys.readouterr().out)
+    gates = _mapping(payload["runtime_gates"])
+    assert gates["machine_verifiable_ready"] is False
