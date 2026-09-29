@@ -481,14 +481,26 @@ class PostgresCollectionSessionRepository:
             await session.delete(row)
             await session.commit()
 
+    async def delete_finalized(
+        self,
+        session_id: UUID,
+        *,
+        owner_user_id: int,
+        chat_id: int,
+    ) -> None:
+        async with self._sessions() as session:
+            row = await _locked_collection_row(session, session_id)
+            _ensure_session_owner(row, owner_user_id=owner_user_id, chat_id=chat_id)
+            if SessionState(row.state) is not SessionState.FINALIZED:
+                raise SessionClosed("only finalized sessions can be deleted after enqueue")
+            await session.delete(row)
+            await session.commit()
+
     async def reap_expired(self, *, now: datetime | None = None) -> int:
         current = now or utc_now()
         async with self._sessions() as session:
             result = await session.execute(
-                delete(CollectionSessionRow).where(
-                    CollectionSessionRow.state == SessionState.COLLECTING.value,
-                    CollectionSessionRow.expires_at <= current,
-                )
+                delete(CollectionSessionRow).where(CollectionSessionRow.expires_at <= current)
             )
             await session.commit()
             return int(getattr(result, "rowcount", 0) or 0)
