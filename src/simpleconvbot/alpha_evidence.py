@@ -80,8 +80,7 @@ class _OperationAccumulator:
                 "multi_file_e2e_success": multi_file_e2e_success,
             },
             "stages": {
-                stage: counter.to_payload()
-                for stage, counter in sorted(self.stages.items())
+                stage: counter.to_payload() for stage, counter in sorted(self.stages.items())
             },
             "validation_input_counts": sorted(validation_counts),
         }
