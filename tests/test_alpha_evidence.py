@@ -84,6 +84,14 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
         ),
         _log({"event": "recovery_summary", "outcome": "success", "count": 0}),
         _log({"event": "recovery_summary", "outcome": "success", "count": 3}),
+        _log(
+            {
+                "event": "retention_policy",
+                "ttl_seconds": 3600,
+                "interval_seconds": 60,
+                "user_id": 777,
+            }
+        ),
         _log({"event": "cleanup", "outcome": "success", "count": 2}),
         _log({"event": "cleanup", "outcome": "failure", "count": 0}),
         _log(
@@ -151,6 +159,14 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
         "failure": 1,
         "deleted_total": 2,
     }
+    assert summary["retention_policy"] == {
+        "events": 1,
+        "latest": {
+            "ttl_seconds": 3600,
+            "sweep_interval_seconds": 60,
+            "max_cleanup_delay_seconds": 3660,
+        },
+    }
 
     admin = _mapping(summary["latest_admin_diagnostic"])
     assert admin["health_ready"] is True
@@ -175,6 +191,7 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
         "token",
         "999",
         "888",
+        "777",
     ):
         assert forbidden not in serialized
 
