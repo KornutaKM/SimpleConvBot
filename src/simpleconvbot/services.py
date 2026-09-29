@@ -31,9 +31,15 @@ class StartJobRequest:
     source_message_id: int
     operation_id: str
     operation_version: int
+    idempotency_token: str | None = None
 
     @property
     def idempotency_key(self) -> str:
+        if self.idempotency_token is not None:
+            return (
+                f"telegram-session:{self.idempotency_token}:"
+                f"{self.operation_id}:v{self.operation_version}"
+            )
         return (
             f"telegram:{self.chat_id}:{self.user_id}:{self.source_message_id}:"
             f"{self.operation_id}:v{self.operation_version}"
@@ -107,7 +113,16 @@ class JobService:
             )
 
         if job.state is JobState.QUEUED:
-            await self._queue.enqueue(job.job_id)
+            try:
+                await self._queue.enqueue(job.job_id)
+            except Exception:
+                with suppress(InvalidTransition):
+                    job = await self._repository.transition(
+                        job.job_id,
+                        JobState.QUEUED,
+                        JobState.FAILED,
+                    )
+                raise
 
         return StartJobResult(job=job, created=created)
 

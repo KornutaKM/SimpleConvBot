@@ -254,3 +254,83 @@ async def _session_limits_expiry_and_reaper_are_fail_closed() -> None:
             )
     finally:
         await engine.dispose()
+
+
+@pytest.mark.integration
+def test_finalized_session_refs_are_deleted_or_reaped() -> None:
+    asyncio.run(_finalized_session_refs_are_deleted_or_reaped())
+
+
+async def _finalized_session_refs_are_deleted_or_reaped() -> None:
+    engine = make_engine(os.environ["DATABASE_URL"])
+    sessions = make_session_factory(engine)
+    repository = PostgresCollectionSessionRepository(
+        sessions,
+        SessionPolicy(ttl_seconds=60),
+    )
+    now = datetime(2026, 9, 28, 15, 0, tzinfo=UTC)
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+
+        first = await repository.create(
+            kind=SessionKind.IMAGES_TO_PDF,
+            owner_user_id=11,
+            chat_id=22,
+            now=now,
+        )
+        await repository.add_file(
+            first.session_id,
+            owner_user_id=11,
+            chat_id=22,
+            item=SessionFileInput(1, "telegram-file-id-A", 100),
+            now=now,
+        )
+        await repository.finalize(
+            first.session_id,
+            owner_user_id=11,
+            chat_id=22,
+            now=now,
+        )
+        await repository.delete_finalized(
+            first.session_id,
+            owner_user_id=11,
+            chat_id=22,
+        )
+        with pytest.raises(SessionNotFound):
+            await repository.get_owned(
+                first.session_id,
+                owner_user_id=11,
+                chat_id=22,
+            )
+
+        second = await repository.create(
+            kind=SessionKind.PDF_MERGE,
+            owner_user_id=11,
+            chat_id=22,
+            now=now,
+        )
+        await repository.add_file(
+            second.session_id,
+            owner_user_id=11,
+            chat_id=22,
+            item=SessionFileInput(2, "telegram-file-id-B", 100),
+            now=now,
+        )
+        await repository.finalize(
+            second.session_id,
+            owner_user_id=11,
+            chat_id=22,
+            now=now,
+        )
+
+        assert await repository.reap_expired(now=now + timedelta(seconds=61)) == 1
+        with pytest.raises(SessionNotFound):
+            await repository.get_owned(
+                second.session_id,
+                owner_user_id=11,
+                chat_id=22,
+            )
+    finally:
+        await engine.dispose()

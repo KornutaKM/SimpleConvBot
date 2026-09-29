@@ -10,7 +10,7 @@ from uuid import UUID
 import pytest
 from redis.asyncio import Redis
 
-from simpleconvbot.jobs import JobState
+from simpleconvbot.jobs import CreateJob, JobState
 from simpleconvbot.operations import OperationDefinition, OperationRegistry
 from simpleconvbot.ports import ExecutionResult
 from simpleconvbot.postgres import (
@@ -41,6 +41,22 @@ class CountingExecutor:
         output = workspace / "noop.txt"
         output.write_text("noop", encoding="utf-8")
         return ExecutionResult(output_ref=str(output))
+
+
+class FailingQueue:
+    async def enqueue(self, job_id: UUID) -> None:
+        del job_id
+        raise RuntimeError("synthetic queue uncertainty")
+
+    async def reserve(self, timeout_seconds: int) -> UUID | None:
+        del timeout_seconds
+        return None
+
+    async def ack(self, job_id: UUID) -> None:
+        del job_id
+
+    async def recover_inflight(self) -> int:
+        return 0
 
 
 class FailingExecutor:
@@ -192,6 +208,53 @@ async def _failed_execution_cleans_workspace_and_marks_job_failed() -> None:
         await redis_client.aclose()
         await engine.dispose()
         shutil.rmtree(temp_root, ignore_errors=True)
+
+
+@pytest.mark.integration
+def test_queue_submission_uncertainty_fails_job_closed() -> None:
+    asyncio.run(_queue_submission_uncertainty_fails_job_closed())
+
+
+async def _queue_submission_uncertainty_fails_job_closed() -> None:
+    database_url = os.environ["DATABASE_URL"]
+    engine = make_engine(database_url)
+    sessions = make_session_factory(engine)
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+
+        repository = PostgresJobRepository(sessions)
+        service = JobService(
+            repository,
+            FailingQueue(),
+            OperationRegistry([OperationDefinition("test.noop", 1, "test")]),
+        )
+        request = StartJobRequest(
+            user_id=71,
+            chat_id=72,
+            source_message_id=73,
+            operation_id="test.noop",
+            operation_version=1,
+        )
+
+        with pytest.raises(RuntimeError, match="queue uncertainty"):
+            await service.start_operation(request)
+
+        job, created = await repository.create_or_get(
+            CreateJob(
+                idempotency_key=request.idempotency_key,
+                operation_id=request.operation_id,
+                operation_version=request.operation_version,
+                user_id=request.user_id,
+                chat_id=request.chat_id,
+                source_message_id=request.source_message_id,
+            )
+        )
+        assert not created
+        assert job.state is JobState.FAILED
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.integration

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from html import escape
+from uuid import UUID
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+from simpleconvbot.sessions import CollectionSessionSnapshot, SessionKind
 
 HOME_CALLBACK = "ui:home"
 SEND_FILE_CALLBACK = "ui:send-file"
@@ -197,6 +200,34 @@ def video_actions_keyboard() -> InlineKeyboardMarkup:
             ],
             [_button("← Назад", TOOLS_CALLBACK)],
         ]
+    )
+
+
+def collection_keyboard(session_id: UUID) -> InlineKeyboardMarkup:
+    raw = str(session_id)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_button("➕ Добавить файл", f"sess:add:{raw}")],
+            [
+                _button("✅ Готово", f"sess:done:{raw}"),
+                _button("✖️ Отмена", f"sess:cancel:{raw}"),
+            ],
+        ]
+    )
+
+
+def collection_status_text(snapshot: CollectionSessionSnapshot) -> str:
+    title = (
+        "🖼 <b>Изображения → PDF</b>"
+        if snapshot.kind is SessionKind.IMAGES_TO_PDF
+        else "🧩 <b>Объединение PDF</b>"
+    )
+    noun = "файл" if snapshot.file_count == 1 else "файлов"
+    return (
+        f"{title}\n\n"
+        f"Добавлено: <b>{snapshot.file_count}</b> {noun}\n"
+        f"Общий размер: <b>{format_file_size(snapshot.total_bytes)}</b>\n\n"
+        "Отправьте следующий файл или нажмите «Готово»."
     )
 
 

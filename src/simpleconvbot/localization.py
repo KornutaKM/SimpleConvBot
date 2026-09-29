@@ -38,6 +38,9 @@ class UserErrorCode(StrEnum):
     SESSION_LIMIT_EXCEEDED = "session_limit_exceeded"
     SESSION_FILE_NOT_FOUND = "session_file_not_found"
     SESSION_IDEMPOTENCY_CONFLICT = "session_idempotency_conflict"
+    SESSION_ALREADY_ACTIVE = "session_already_active"
+    SESSION_WRONG_FILE_TYPE = "session_wrong_file_type"
+    TELEGRAM_FILE_SIZE_UNKNOWN = "telegram_file_size_unknown"
     TELEGRAM_DOWNLOAD_FAILED = "telegram_download_failed"
     TELEGRAM_UPLOAD_FAILED = "telegram_upload_failed"
     INTERNAL_ERROR = "internal_error"
@@ -260,6 +263,18 @@ _ERROR_TEXT: dict[str, LocalizedText] = {
     "session_idempotency_conflict": LocalizedText(
         "Не удалось подтвердить повторную отправку файла. Начните операцию заново.",
         "The repeated file submission could not be verified. Start the operation again.",
+    ),
+    "session_already_active": LocalizedText(
+        "Сначала завершите или отмените текущую сборку файлов.",
+        "Finish or cancel the current file collection first.",
+    ),
+    "session_wrong_file_type": LocalizedText(
+        "Для текущей сборки нужен другой тип файла.",
+        "This collection expects a different file type.",
+    ),
+    "telegram_file_size_unknown": LocalizedText(
+        "Telegram не сообщил размер файла, поэтому безопасно добавить его нельзя.",
+        "Telegram did not provide the file size, so it cannot be added safely.",
     ),
     # Storage/sandbox codes are intentionally generalized for end users.
     "storage_invalid_internal_name": LocalizedText(

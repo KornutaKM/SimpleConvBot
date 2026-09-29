@@ -15,6 +15,7 @@ from simpleconvbot.media_operations import MEDIA_OPERATIONS
 from simpleconvbot.operations import OperationRegistry
 from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.postgres import (
+    PostgresCollectionSessionRepository,
     PostgresJobRepository,
     PostgresUpdateReceiptStore,
     create_schema,
@@ -23,13 +24,16 @@ from simpleconvbot.postgres import (
 )
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
+from simpleconvbot.redis_sessions import RedisSessionFocusStore
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
+from simpleconvbot.sessions import SessionPolicy
 from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import (
     TelegramDelivery,
     TelegramExecutionGateway,
     TelegramOperationExecutor,
 )
+from simpleconvbot.telegram_sessions import TelegramCollectionGateway
 
 
 async def run_polling(settings: Settings | None = None) -> None:
@@ -58,16 +62,31 @@ async def run_polling(settings: Settings | None = None) -> None:
         ),
     )
     jobs = JobService(repository, queue, registry)
+    rate_limiter = RedisUpdateRateLimiter(
+        redis_client,
+        limit=current.update_rate_limit_per_minute,
+    )
     execution = TelegramExecutionGateway(
         bot=bot,
         jobs=jobs,
         storage=storage,
-        rate_limiter=RedisUpdateRateLimiter(
-            redis_client,
-            limit=current.update_rate_limit_per_minute,
-        ),
+        rate_limiter=rate_limiter,
     )
-    dispatcher = create_dispatcher(PostgresUpdateReceiptStore(sessions), execution)
+    session_policy = SessionPolicy()
+    collections = TelegramCollectionGateway(
+        bot=bot,
+        repository=PostgresCollectionSessionRepository(sessions, session_policy),
+        focus=RedisSessionFocusStore(redis_client),
+        jobs=jobs,
+        storage=storage,
+        rate_limiter=rate_limiter,
+        policy=session_policy,
+    )
+    dispatcher = create_dispatcher(
+        PostgresUpdateReceiptStore(sessions),
+        execution,
+        collections,
+    )
     delivery = TelegramDelivery(bot)
     worker = QueueWorker(
         queue,

@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from aiogram.types import InlineKeyboardMarkup
 
 from simpleconvbot.ui import (
@@ -11,6 +13,7 @@ from simpleconvbot.ui import (
     TOOLS_CALLBACK,
     VIDEO_ACTION_TITLES,
     audio_actions_keyboard,
+    collection_keyboard,
     format_file_size,
     home_keyboard,
     image_actions_keyboard,
@@ -89,3 +92,15 @@ def test_user_supplied_filename_is_html_escaped() -> None:
 
     assert "<b>unsafe.png</b>" not in card
     assert "&lt;b&gt;unsafe.png&lt;/b&gt;" in card
+
+
+def test_collection_callbacks_fit_telegram_limit_and_bind_session() -> None:
+    session_id = uuid4()
+    callbacks = _callback_data(collection_keyboard(session_id))
+
+    assert callbacks == {
+        f"sess:add:{session_id}",
+        f"sess:done:{session_id}",
+        f"sess:cancel:{session_id}",
+    }
+    assert all(len(value.encode("utf-8")) <= 64 for value in callbacks)
