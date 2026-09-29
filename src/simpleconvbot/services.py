@@ -4,6 +4,8 @@ from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
+import logging
+from time import monotonic
 from uuid import UUID
 
 from simpleconvbot.jobs import (
@@ -22,6 +24,18 @@ from simpleconvbot.ports import (
     OperationExecutor,
     TemporaryStorage,
 )
+from simpleconvbot.telemetry import (
+    OperationMetricRecorder,
+    OperationOutcome,
+    OperationStage,
+    TelemetryEvent,
+    TelemetryEventType,
+    emit_operation_telemetry,
+    opaque_correlation_id,
+)
+
+LOGGER = logging.getLogger(__name__)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,10 +72,12 @@ class JobService:
         repository: JobRepository,
         queue: JobQueue,
         registry: OperationRegistry,
+        metrics: OperationMetricRecorder | None = None,
     ) -> None:
         self._repository = repository
         self._queue = queue
         self._registry = registry
+        self._metrics = metrics
 
     async def start_operation(
         self,
@@ -113,9 +129,18 @@ class JobService:
             )
 
         if job.state is JobState.QUEUED:
+            queue_started = monotonic()
             try:
                 await self._queue.enqueue(job.job_id)
-            except Exception:
+            except Exception as exc:
+                _emit_stage(
+                    job,
+                    OperationStage.QUEUE,
+                    OperationOutcome.FAILURE,
+                    queue_started,
+                    metrics=self._metrics,
+                    error_code=_exception_code(exc),
+                )
                 with suppress(InvalidTransition):
                     job = await self._repository.transition(
                         job.job_id,
@@ -123,6 +148,13 @@ class JobService:
                         JobState.FAILED,
                     )
                 raise
+            _emit_stage(
+                job,
+                OperationStage.QUEUE,
+                OperationOutcome.SUCCESS,
+                queue_started,
+                metrics=self._metrics,
+            )
 
         return StartJobResult(job=job, created=created)
 
@@ -142,6 +174,7 @@ class JobWorker:
         executor: OperationExecutor,
         delivery: DeliveryPort,
         failure_delivery: FailureDeliveryPort | None = None,
+        metrics: OperationMetricRecorder | None = None,
     ) -> None:
         self._repository = repository
         self._registry = registry
@@ -149,6 +182,7 @@ class JobWorker:
         self._executor = executor
         self._delivery = delivery
         self._failure_delivery = failure_delivery
+        self._metrics = metrics
 
     async def process(self, job_id: UUID) -> WorkerOutcome:
         job = await self._repository.get(job_id)
@@ -174,15 +208,24 @@ class JobWorker:
                 JobState.UPLOADING,
             )
             await self._delivery.deliver(job, result)
-            await self._storage.cleanup_workspace(job_id)
+            await _cleanup_workspace(
+                self._storage,
+                job,
+                metrics=self._metrics,
+                suppress_errors=False,
+            )
             await self._repository.transition(
                 job_id,
                 JobState.UPLOADING,
                 JobState.COMPLETED,
             )
         except Exception as exc:
-            with suppress(Exception):
-                await self._storage.cleanup_workspace(job_id)
+            await _cleanup_workspace(
+                self._storage,
+                job,
+                metrics=self._metrics,
+                suppress_errors=True,
+            )
 
             current = await self._repository.get(job_id)
             failed = current
@@ -217,6 +260,61 @@ class QueueWorker:
         await self._worker.process(job_id)
         await self._queue.ack(job_id)
         return True
+
+
+async def _cleanup_workspace(
+    storage: TemporaryStorage,
+    job: JobSnapshot,
+    *,
+    metrics: OperationMetricRecorder | None,
+    suppress_errors: bool,
+) -> None:
+    started = monotonic()
+    try:
+        await storage.cleanup_workspace(job.job_id)
+    except Exception as exc:
+        _emit_stage(
+            job,
+            OperationStage.CLEANUP,
+            OperationOutcome.FAILURE,
+            started,
+            metrics=metrics,
+            error_code=_exception_code(exc),
+        )
+        if not suppress_errors:
+            raise
+        return
+    _emit_stage(
+        job,
+        OperationStage.CLEANUP,
+        OperationOutcome.SUCCESS,
+        started,
+        metrics=metrics,
+    )
+
+
+def _emit_stage(
+    job: JobSnapshot,
+    stage: OperationStage,
+    outcome: OperationOutcome,
+    started: float,
+    *,
+    metrics: OperationMetricRecorder | None,
+    error_code: str | None = None,
+) -> None:
+    emit_operation_telemetry(
+        LOGGER,
+        TelemetryEvent.now(
+            TelemetryEventType.OPERATION_STAGE,
+            operation_id=job.operation_id,
+            stage=stage,
+            outcome=outcome,
+            duration_ms=(monotonic() - started) * 1000,
+            error_code=error_code,
+            correlation_id=opaque_correlation_id(job.job_id),
+        ),
+        metrics,
+    )
 
 
 def _exception_code(exc: Exception) -> str:
