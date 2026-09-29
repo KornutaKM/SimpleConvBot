@@ -99,6 +99,7 @@ def test_metrics_are_aggregated_without_user_or_file_identity() -> None:
         stage=OperationStage.WORKER,
         outcome=OperationOutcome.FAILURE,
         duration_ms=30,
+        error_code="pdf_corrupt",
     )
     registry.record_cleanup(deleted=3, failed=1)
 
@@ -112,6 +113,12 @@ def test_metrics_are_aggregated_without_user_or_file_identity() -> None:
     assert metric.failed == 1
     assert metric.duration_sum_ms == 40
     assert metric.duration_max_ms == 30
+    assert len(snapshot.failure_classes) == 1
+    failure = snapshot.failure_classes[0]
+    assert failure.operation_id == "pdf.merge"
+    assert failure.stage is OperationStage.WORKER
+    assert failure.error_code == "pdf_corrupt"
+    assert failure.count == 1
     assert snapshot.cleanup.attempts == 1
     assert snapshot.cleanup.deleted == 3
     assert snapshot.cleanup.failed == 1
@@ -124,6 +131,13 @@ def test_admin_diagnostics_are_aggregate_only() -> None:
         stage=OperationStage.VALIDATION,
         outcome=OperationOutcome.SUCCESS,
         duration_ms=2,
+    )
+    registry.record_operation(
+        operation_id="image.resize",
+        stage=OperationStage.WORKER,
+        outcome=OperationOutcome.FAILURE,
+        duration_ms=5,
+        error_code="image_corrupt",
     )
     diagnostics = AdminDiagnostics(
         version="0.1.0.dev0",
@@ -145,6 +159,7 @@ def test_admin_diagnostics_are_aggregate_only() -> None:
     assert payload["uptime_seconds"] == 123.457
     assert payload["health"]["ready"] is False  # type: ignore[index]
     assert "image.resize" in serialized
+    assert "image_corrupt" in serialized
     assert "user_id" not in serialized
     assert "chat_id" not in serialized
     assert "filename" not in serialized
@@ -187,8 +202,9 @@ def test_operation_telemetry_updates_aggregate_metrics(
         timestamp=datetime(2026, 9, 29, 0, 0, tzinfo=UTC),
         operation_id="video.compress",
         stage=OperationStage.WORKER,
-        outcome=OperationOutcome.SUCCESS,
+        outcome=OperationOutcome.FAILURE,
         duration_ms=42.5,
+        error_code="media_timeout",
     )
     logger = logging.getLogger("simpleconvbot.test.metrics")
 
@@ -201,9 +217,15 @@ def test_operation_telemetry_updates_aggregate_metrics(
     assert metric.operation_id == "video.compress"
     assert metric.stage is OperationStage.WORKER
     assert metric.total == 1
-    assert metric.succeeded == 1
-    assert metric.failed == 0
+    assert metric.succeeded == 0
+    assert metric.failed == 1
     assert metric.duration_sum_ms == 42.5
+    assert len(snapshot.failure_classes) == 1
+    failure = snapshot.failure_classes[0]
+    assert failure.operation_id == "video.compress"
+    assert failure.stage is OperationStage.WORKER
+    assert failure.error_code == "media_timeout"
+    assert failure.count == 1
 
 
 def test_admin_diagnostics_emit_structured_privacy_safe_json(
@@ -245,3 +267,43 @@ def test_admin_diagnostics_emit_structured_privacy_safe_json(
         "token",
     ):
         assert forbidden not in serialized
+
+
+def test_failure_class_metrics_reject_free_form_error_codes() -> None:
+    registry = MetricsRegistry()
+
+    with pytest.raises(ValueError, match="stable machine identifier"):
+        registry.record_operation(
+            operation_id="image.to_png",
+            stage=OperationStage.WORKER,
+            outcome=OperationOutcome.FAILURE,
+            duration_ms=1,
+            error_code="unsafe filename: passport.pdf",
+        )
+
+
+def test_failed_operation_telemetry_requires_error_code() -> None:
+    event = TelemetryEvent(
+        event_type=TelemetryEventType.OPERATION_STAGE,
+        timestamp=datetime.now(UTC),
+        operation_id="image.to_png",
+        stage=OperationStage.WORKER,
+        outcome=OperationOutcome.FAILURE,
+        duration_ms=1,
+    )
+
+    with pytest.raises(ValueError, match="requires error_code"):
+        emit_operation_telemetry(logging.getLogger("simpleconvbot.test"), event)
+
+
+def test_successful_operation_metrics_reject_error_code() -> None:
+    registry = MetricsRegistry()
+
+    with pytest.raises(ValueError, match="must not include error_code"):
+        registry.record_operation(
+            operation_id="image.to_png",
+            stage=OperationStage.WORKER,
+            outcome=OperationOutcome.SUCCESS,
+            duration_ms=1,
+            error_code="internal_error",
+        )

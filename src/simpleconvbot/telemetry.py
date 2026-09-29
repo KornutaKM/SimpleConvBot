@@ -35,6 +35,7 @@ class OperationMetricRecorder(Protocol):
         stage: OperationStage,
         outcome: OperationOutcome,
         duration_ms: float,
+        error_code: str | None = None,
     ) -> None: ...
 
 
@@ -152,12 +153,17 @@ def emit_operation_telemetry(
         or event.duration_ms is None
     ):
         raise ValueError("operation telemetry requires operation_id, stage, outcome, and duration")
+    if event.outcome is OperationOutcome.FAILURE and event.error_code is None:
+        raise ValueError("failed operation telemetry requires error_code")
+    if event.outcome is OperationOutcome.SUCCESS and event.error_code is not None:
+        raise ValueError("successful operation telemetry must not include error_code")
     if metrics is not None:
         metrics.record_operation(
             operation_id=event.operation_id,
             stage=event.stage,
             outcome=event.outcome,
             duration_ms=event.duration_ms,
+            error_code=event.error_code,
         )
     emit_telemetry(logger, event)
 

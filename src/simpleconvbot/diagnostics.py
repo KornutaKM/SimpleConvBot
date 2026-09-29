@@ -45,6 +45,15 @@ class AdminDiagnostics:
                     }
                     for item in self.metrics.operations
                 ],
+                "failure_classes": [
+                    {
+                        "operation_id": item.operation_id,
+                        "stage": item.stage.value,
+                        "error_code": item.error_code,
+                        "count": item.count,
+                    }
+                    for item in self.metrics.failure_classes
+                ],
                 "cleanup": {
                     "attempts": self.metrics.cleanup.attempts,
                     "deleted": self.metrics.cleanup.deleted,
