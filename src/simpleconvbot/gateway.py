@@ -15,6 +15,7 @@ from aiogram.types import (
 )
 
 from simpleconvbot.ports import UpdateReceiptStore
+from simpleconvbot.telegram_execution import TelegramExecutionGateway, image_operation
 from simpleconvbot.ui import (
     CATEGORY_TITLES,
     DOCUMENT_CATEGORY_TEXT,
@@ -75,7 +76,7 @@ async def _edit_callback_message(
     await callback.answer()
 
 
-def create_router() -> Router:
+def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
     router = Router(name="simpleconvbot")
 
     @router.message(CommandStart())
@@ -158,6 +159,19 @@ def create_router() -> Router:
             category_back_keyboard(),
         )
 
+    @router.callback_query(
+        F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp", "ui:image:compress"})
+    )
+    async def execute_image_action(callback: CallbackQuery) -> None:
+        operation_id = image_operation(callback.data)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if execution is None or not isinstance(source, Message) or operation_id is None:
+            await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
+            return
+        await callback.answer()
+        await execution.start_image(source, operation_id)
+
     @router.callback_query(F.data.startswith("ui:image:"))
     async def image_action(callback: CallbackQuery) -> None:
         callback_data = callback.data
@@ -196,7 +210,7 @@ def create_router() -> Router:
         if not photos:
             return
         photo = photos[-1]
-        await message.answer(
+        await message.reply(
             photo_card(photo.width, photo.height, photo.file_size),
             reply_markup=image_actions_keyboard(),
             parse_mode=ParseMode.HTML,
@@ -210,7 +224,7 @@ def create_router() -> Router:
 
         mime_type = document.mime_type
         if mime_type == "application/pdf":
-            await message.answer(
+            await message.reply(
                 pdf_card(document.file_name, document.file_size),
                 reply_markup=pdf_actions_keyboard(),
                 parse_mode=ParseMode.HTML,
@@ -218,7 +232,7 @@ def create_router() -> Router:
             return
 
         if mime_type is not None and mime_type.startswith("image/"):
-            await message.answer(
+            await message.reply(
                 image_document_card(
                     document.file_name,
                     document.mime_type,
@@ -242,8 +256,11 @@ def create_router() -> Router:
     return router
 
 
-def create_dispatcher(receipts: UpdateReceiptStore) -> Dispatcher:
+def create_dispatcher(
+    receipts: UpdateReceiptStore,
+    execution: TelegramExecutionGateway | None = None,
+) -> Dispatcher:
     dispatcher = Dispatcher()
     dispatcher.update.outer_middleware(UpdateDeduplicationMiddleware(receipts))
-    dispatcher.include_router(create_router())
+    dispatcher.include_router(create_router(execution))
     return dispatcher
