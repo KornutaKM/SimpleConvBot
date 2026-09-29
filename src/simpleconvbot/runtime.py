@@ -172,6 +172,7 @@ async def run_polling(settings: Settings | None = None) -> None:
             [
                 BotCommand(command="start", description="Home"),
                 BotCommand(command="tools", description="All tools"),
+                BotCommand(command="help", description="Help"),
                 BotCommand(command="settings", description="Settings"),
             ]
         )
@@ -179,6 +180,7 @@ async def run_polling(settings: Settings | None = None) -> None:
             [
                 BotCommand(command="start", description="Главный экран"),
                 BotCommand(command="tools", description="Все инструменты"),
+                BotCommand(command="help", description="Помощь"),
                 BotCommand(command="settings", description="Настройки"),
             ],
             language_code="ru",
