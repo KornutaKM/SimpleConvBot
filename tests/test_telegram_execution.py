@@ -23,6 +23,7 @@ from simpleconvbot.storage import (
     StorageSecurityError,
 )
 from simpleconvbot.telegram_execution import (
+    TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES,
     TelegramDelivery,
     TelegramExecutionGateway,
     TelegramFile,
@@ -447,6 +448,44 @@ async def _single_file_download_rejects_known_oversize_before_provider_io(
         await gateway._download(
             job,
             TelegramFile(file_id="provider-ref", file_size=11),
+        )
+
+    assert caught.value.code == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
+    assert not (root / str(job.job_id)).exists()
+
+
+
+def test_single_file_download_rejects_cloud_transport_oversize_before_provider_io(
+    tmp_path: Path,
+) -> None:
+    asyncio.run(
+        _single_file_download_rejects_cloud_transport_oversize_before_provider_io(tmp_path)
+    )
+
+
+async def _single_file_download_rejects_cloud_transport_oversize_before_provider_io(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "jobs"
+    storage = LocalTemporaryStorage(
+        root,
+        max_workspace_bytes=4 * TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES,
+    )
+    gateway = TelegramExecutionGateway(
+        bot=cast(Bot, object()),
+        jobs=cast(JobService, object()),
+        storage=storage,
+        rate_limiter=cast(RedisUpdateRateLimiter, object()),
+    )
+    job = _job("image.to_png")
+
+    with pytest.raises(UserFacingError) as caught:
+        await gateway._download(
+            job,
+            TelegramFile(
+                file_id="provider-ref",
+                file_size=TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES + 1,
+            ),
         )
 
     assert caught.value.code == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
