@@ -106,10 +106,14 @@ class TelegramCollectionGateway:
             return
         await _remember_locale(self._locale_store, user.id, current_locale)
         if not await self._rate_limiter.allow(user.id):
-            await message.answer(error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale)
+            )
             return
         if not _message_matches_kind(message, kind):
-            await message.answer(error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale)
+            )
             return
 
         active = await self._focus.get(user_id=user.id, chat_id=message.chat.id)
@@ -132,8 +136,14 @@ class TelegramCollectionGateway:
                     and datetime.now(UTC) < snapshot.expires_at
                 ):
                     await message.answer(
-                        error_text(UserErrorCode.SESSION_ALREADY_ACTIVE.value, current_locale),
-                        reply_markup=collection_keyboard(snapshot.session_id, current_locale),
+                        error_text(
+                            UserErrorCode.SESSION_ALREADY_ACTIVE.value,
+                            current_locale,
+                        ),
+                        reply_markup=collection_keyboard(
+                            snapshot.session_id,
+                            current_locale,
+                        ),
                     )
                     return
                 await self._focus.clear(
@@ -144,7 +154,9 @@ class TelegramCollectionGateway:
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
+            )
             return
 
         created_session_id: UUID | None = None
@@ -232,15 +244,21 @@ class TelegramCollectionGateway:
             return True
 
         if not await self._rate_limiter.allow(user.id):
-            await message.answer(error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale)
+            )
             return True
         if not _message_matches_kind(message, snapshot.kind):
-            await message.answer(error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale)
+            )
             return True
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
+            await message.answer(
+                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
+            )
             return True
 
         try:
@@ -285,7 +303,10 @@ class TelegramCollectionGateway:
         current_locale = resolve_locale(user.language_code)
         await _remember_locale(self._locale_store, user.id, current_locale)
         if parsed is None or not isinstance(message, Message):
-            await callback.answer(session_unavailable_text(current_locale), show_alert=True)
+            await callback.answer(
+                session_unavailable_text(current_locale),
+                show_alert=True,
+            )
             return
 
         action, session_id = parsed
@@ -343,7 +364,10 @@ class TelegramCollectionGateway:
             await callback.answer()
             await self._enqueue_finalized(message, user.id, plan, current_locale)
         except Exception as exc:
-            await callback.answer(error_text(_session_error_code(exc), current_locale), show_alert=True)
+            await callback.answer(
+                error_text(_session_error_code(exc), current_locale),
+                show_alert=True,
+            )
 
     async def _enqueue_finalized(
         self,
@@ -387,7 +411,10 @@ class TelegramCollectionGateway:
             return
         if result.created:
             await message.answer(
-                collection_accepted_text(operation_title(plan.operation_id, locale), locale)
+                collection_accepted_text(
+                    operation_title(plan.operation_id, locale),
+                    locale,
+                )
             )
         else:
             await message.answer(collection_duplicate_text(locale))
