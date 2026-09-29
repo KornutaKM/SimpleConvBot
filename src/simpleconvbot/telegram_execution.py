@@ -531,16 +531,6 @@ class TelegramExecutionGateway:
             await message.answer(error_text(exc.code.value, current_locale))
             return
         except UserFacingError as exc:
-            emit_telemetry(
-                LOGGER,
-                TelemetryEvent.now(
-                    TelemetryEventType.INPUT_REJECTED,
-                    operation_id=operation_id,
-                    outcome=OperationOutcome.FAILURE,
-                    error_code=exc.code,
-                    count=1,
-                ),
-            )
             await message.answer(error_text(exc.code, current_locale))
             return
         except Exception:
@@ -573,6 +563,17 @@ class TelegramExecutionGateway:
                 error_code=code,
                 metrics=self._metrics,
             )
+            if code == UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value:
+                emit_telemetry(
+                    LOGGER,
+                    TelemetryEvent.now(
+                        TelemetryEventType.INPUT_REJECTED,
+                        operation_id=job.operation_id,
+                        outcome=OperationOutcome.FAILURE,
+                        error_code=code,
+                        count=1,
+                    ),
+                )
             raise UserFacingError(code) from exc
         _emit(
             job,
