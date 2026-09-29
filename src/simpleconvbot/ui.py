@@ -412,9 +412,7 @@ def category_back_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 
 def image_back_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_button(_pick(locale, "← К изображениям", "← Images"), "ui:cat:image")]
-        ]
+        inline_keyboard=[[_button(_pick(locale, "← К изображениям", "← Images"), "ui:cat:image")]]
     )
 
 
@@ -502,9 +500,7 @@ def unsupported_document_card(
     locale: Locale = Locale.RU,
 ) -> str:
     safe_name = escape(filename or _pick(locale, "Файл", "File"))
-    safe_mime = escape(
-        mime_type or _pick(locale, "неизвестный формат", "unknown format")
-    )
+    safe_mime = escape(mime_type or _pick(locale, "неизвестный формат", "unknown format"))
     body = _pick(
         locale,
         (
@@ -557,10 +553,7 @@ def send_file_hint(locale: Locale) -> str:
     return _pick(
         locale,
         "Нажмите скрепку Telegram рядом с полем сообщения и выберите файл.",
-        (
-            "Tap the Telegram attachment button next to the message field "
-            "and choose a file."
-        ),
+        ("Tap the Telegram attachment button next to the message field and choose a file."),
     )
 
 
@@ -568,14 +561,8 @@ def setting_notice_text(locale: Locale, setting: str | None) -> str:
     if setting == "ui:setting:language":
         return _pick(
             locale,
-            (
-                "SimpleConv автоматически использует язык вашего Telegram: "
-                "русский или английский."
-            ),
-            (
-                "SimpleConv automatically follows your Telegram language: "
-                "Russian or English."
-            ),
+            ("SimpleConv автоматически использует язык вашего Telegram: русский или английский."),
+            ("SimpleConv automatically follows your Telegram language: Russian or English."),
         )
     return _pick(
         locale,
