@@ -149,7 +149,7 @@ After deployment:
    - PDF merge collection.
 7. Exercise bounded failure paths:
    - unsupported input;
-   - oversized input;
+   - oversized input (must report a size-limit error, not a generic download failure);
    - duplicate callback/update;
    - restart during or around queued work.
 8. Verify the `admin_diagnostic` operation-stage aggregates move for the
