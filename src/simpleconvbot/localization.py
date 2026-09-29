@@ -264,6 +264,18 @@ _ERROR_TEXT: dict[str, LocalizedText] = {
         "Не удалось подтвердить повторную отправку файла. Начните операцию заново.",
         "The repeated file submission could not be verified. Start the operation again.",
     ),
+    "session_already_active": LocalizedText(
+        "Сначала завершите или отмените текущую сборку файлов.",
+        "Finish or cancel the current file collection first.",
+    ),
+    "session_wrong_file_type": LocalizedText(
+        "Для текущей сборки нужен другой тип файла.",
+        "This collection expects a different file type.",
+    ),
+    "telegram_file_size_unknown": LocalizedText(
+        "Telegram не сообщил размер файла, поэтому безопасно добавить его нельзя.",
+        "Telegram did not provide the file size, so it cannot be added safely.",
+    ),
     # Storage/sandbox codes are intentionally generalized for end users.
     "storage_invalid_internal_name": LocalizedText(
         "Не удалось подготовить временный файл.",
