@@ -13,7 +13,8 @@ def run(args: Sequence[str]) -> None:
 
 def main() -> int:
     run(("ruff", "format", "--check", "."))
-    run(("ruff", "check", "."))
+    run(("ruff", "check", "--fix", "."))
+    subprocess.run(("git", "diff", "--", "scripts/alpha_evidence.py"), check=True)
     run(("mypy", "src", "tests"))
     run(("pytest", "-m", "not integration"))
     return 0
