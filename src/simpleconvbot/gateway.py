@@ -34,6 +34,7 @@ from simpleconvbot.telemetry import (
 )
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
+    HELP_CALLBACK,
     HOME_CALLBACK,
     IMAGE_ACTION_TITLES,
     PDF_ACTION_TITLES,
@@ -48,6 +49,8 @@ from simpleconvbot.ui import (
     category_placeholder_text,
     category_text,
     category_title,
+    help_keyboard,
+    help_text,
     home_keyboard,
     image_actions_keyboard,
     image_back_keyboard,
@@ -209,6 +212,16 @@ def create_router(
             callback,
             tools_text(locale),
             tools_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(F.data == HELP_CALLBACK)
+    async def help(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        await _edit_callback_message(
+            callback,
+            help_text(locale),
+            help_keyboard(locale),
             locale,
         )
 
