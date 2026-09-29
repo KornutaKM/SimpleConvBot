@@ -4,8 +4,8 @@ import argparse
 import asyncio
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import asdict
-from typing import Sequence
 
 from aiogram import Bot
 
@@ -19,7 +19,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply the canonical profile through Telegram Bot API. Without this flag, dry-run only.",
+        help=(
+            "Apply the canonical profile through Telegram Bot API. "
+            "Without this flag, dry-run only."
+        ),
     )
     return parser
 
