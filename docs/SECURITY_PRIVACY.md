@@ -160,6 +160,15 @@ Never log:
 
 Prefer stable ids and error classes.
 
+Production logging must pass through a final redaction layer after exception
+traceback formatting. The redactor must remove configured secrets, Telegram bot
+tokens, PostgreSQL/Redis URLs, Authorization values, provider file paths, and
+filename/file-path fields even when they originate inside third-party exception
+messages.
+
+Redaction is defense in depth. Application code should still avoid placing
+sensitive values in log messages in the first place.
+
 ## Abuse protection
 
 The MVP requires:
