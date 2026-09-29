@@ -38,7 +38,6 @@ from simpleconvbot.jobs import (
     JobState,
     ensure_transition,
 )
-
 from simpleconvbot.sessions import (
     CollectionSessionSnapshot,
     FinalizedSessionPlan,
