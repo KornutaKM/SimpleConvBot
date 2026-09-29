@@ -103,6 +103,8 @@ def image_operation(callback_data: str | None) -> str | None:
 
 
 def pdf_operation(callback_data: str | None) -> str | None:
+    if callback_data is None:
+        return None
     return {
         "ui:pdf:png": "pdf.to_images",
         "ui:pdf:split": "pdf.extract_pages",
