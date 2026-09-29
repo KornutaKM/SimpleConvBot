@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -113,6 +115,39 @@ async def _startup_recovery_fails_interrupted_jobs_and_requeues_queued_jobs() ->
         assert repository.jobs[job.job_id].state is JobState.FAILED
     assert {job_id for job_id, _ in delivery.calls} == {job.job_id for job in interrupted}
     assert {code for _, code in delivery.calls} == {UserErrorCode.RESTART_INTERRUPTED.value}
+
+
+
+def test_startup_recovery_emits_privacy_safe_summary(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    queued = _job(JobState.QUEUED, "image.to_png")
+    interrupted = _job(JobState.PROCESSING, "video.compress")
+    service = StartupRecoveryService(
+        repository=FakeRepository((queued, interrupted)),
+        queue=FakeQueue(inflight=2),
+        storage=FakeStorage(),
+        failure_delivery=RecordingFailureDelivery(),
+    )
+
+    with caplog.at_level(logging.INFO, logger="simpleconvbot.recovery"):
+        result = asyncio.run(service.recover())
+
+    assert result.inflight_queue_items == 2
+    assert result.interrupted_failed == 1
+    assert result.queued_reenqueued == 1
+    summaries = [
+        json.loads(message)
+        for message in caplog.messages
+        if '"event":"recovery_summary"' in message
+    ]
+    assert len(summaries) == 1
+    assert summaries[0]["count"] == 4
+    assert summaries[0]["outcome"] == "success"
+    serialized = json.dumps(summaries[0], sort_keys=True)
+    for forbidden in ("job_id", "user_id", "chat_id", "source_message_id"):
+        assert forbidden not in serialized
+
 
 
 def test_cleanup_failure_keeps_interrupted_job_active_and_aborts_recovery() -> None:
