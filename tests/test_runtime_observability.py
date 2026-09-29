@@ -8,7 +8,11 @@ import pytest
 
 from simpleconvbot.health import ComponentHealth, HealthReport, HealthState
 from simpleconvbot.metrics import MetricsRegistry
-from simpleconvbot.runtime import _emit_diagnostics_snapshot, _require_ready_health
+from simpleconvbot.runtime import (
+    _emit_diagnostics_snapshot,
+    _emit_retention_policy,
+    _require_ready_health,
+)
 
 
 def test_startup_health_gate_accepts_ready_dependencies() -> None:
@@ -68,4 +72,24 @@ def test_runtime_diagnostics_snapshot_is_aggregate_only(
         "redis_url",
         "token",
     ):
+        assert forbidden not in serialized
+
+
+def test_runtime_retention_policy_is_bounded_and_aggregate(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger_name = "simpleconvbot.runtime"
+
+    with caplog.at_level(logging.INFO, logger=logger_name):
+        _emit_retention_policy(ttl_seconds=3600, interval_seconds=60)
+
+    payload = json.loads(caplog.messages[-1])
+    assert payload == {
+        "event": "retention_policy",
+        "interval_seconds": 60,
+        "timestamp": payload["timestamp"],
+        "ttl_seconds": 3600,
+    }
+    serialized = caplog.messages[-1].lower()
+    for forbidden in ("user_id", "chat_id", "filename", "file_path", "token"):
         assert forbidden not in serialized
