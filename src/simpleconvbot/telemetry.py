@@ -35,6 +35,7 @@ class OperationMetricRecorder(Protocol):
         stage: OperationStage,
         outcome: OperationOutcome,
         duration_ms: float,
+        error_code: str | None = None,
     ) -> None: ...
 
 
@@ -158,6 +159,7 @@ def emit_operation_telemetry(
             stage=event.stage,
             outcome=event.outcome,
             duration_ms=event.duration_ms,
+            error_code=event.error_code,
         )
     emit_telemetry(logger, event)
 
