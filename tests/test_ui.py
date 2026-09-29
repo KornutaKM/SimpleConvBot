@@ -27,6 +27,7 @@ from simpleconvbot.ui import (
     welcome_text,
 )
 
+
 def _callback_data(markup: InlineKeyboardMarkup) -> set[str]:
     return {
         button.callback_data
