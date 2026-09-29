@@ -12,17 +12,6 @@ def run(args: Sequence[str]) -> None:
 
 
 def main() -> int:
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ruff",
-            "format",
-            "--diff",
-            "src/simpleconvbot/alpha_manual_review.py",
-        ],
-        check=False,
-    )
     run(("ruff", "format", "--check", "."))
     run(("ruff", "check", "."))
     run(("mypy", "src", "tests"))
