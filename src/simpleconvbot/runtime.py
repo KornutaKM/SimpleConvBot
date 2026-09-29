@@ -127,9 +127,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         await redis_client.ping()
         await queue.recover_inflight()
         initial_retention = await retention.sweep()
-        _emit_retention_result(initial_retention)
-        if initial_retention.workspaces_failed:
-            raise RuntimeError("initial retention sweep reported cleanup failures")
+        _require_complete_initial_retention(initial_retention)
         await bot.set_my_commands(
             [
                 BotCommand(command="start", description="Home"),
@@ -201,6 +199,12 @@ async def _run_retention(
             )
             continue
         _emit_retention_result(result)
+
+
+def _require_complete_initial_retention(result: RetentionSweepResult) -> None:
+    _emit_retention_result(result)
+    if result.workspaces_failed:
+        raise RuntimeError("initial retention sweep reported cleanup failures")
 
 
 def _emit_retention_result(result: RetentionSweepResult) -> None:
