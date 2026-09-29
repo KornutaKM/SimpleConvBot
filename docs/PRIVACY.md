@@ -51,6 +51,21 @@ deleted merely because they are old.
 This seven-day operational-metadata window is separate from the one-hour file
 workspace/session policy.
 
+## Recovery backups
+
+The production database may use bounded provider recovery snapshots. For the
+first Railway public deployment, the approved policy is a daily PostgreSQL
+volume backup schedule with snapshots retained for up to six days.
+
+A record already removed from the live database can therefore remain inside an
+older recovery snapshot until that snapshot expires. Recovery snapshots are used
+only for disaster recovery, are not queried as product data, and do not contain
+temporary conversion workspaces because the app workspace is not placed on the
+database volume.
+
+Longer weekly/monthly backup schedules or a longer point-in-time-recovery window
+require a privacy/retention review before they are enabled.
+
 ## Short-lived Redis data
 
 The current runtime uses Redis for short-lived control data:

@@ -17,6 +17,10 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 - [x] Provider-neutral production, monitoring, smoke, and rollback runbook
   exists.
 - [x] `/help` is part of the runtime Telegram command set.
+- [x] First public hosting path selected: Railway; provider-specific deployment
+  and rollback runbook exists in `docs/RAILWAY.md`.
+- [x] Redis-backed singleton runtime lease prevents concurrent owned runtime work
+  during deployment overlap and fails closed on lease loss.
 
 ## Privacy/retention decision
 
@@ -27,7 +31,7 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 
 ## External production gates
 
-- [ ] Select/configure a continuously available production hosting provider.
+- [ ] Configure the selected Railway production project/environment.
 - [ ] Provision persistent PostgreSQL and Redis.
 - [ ] Install production secrets through the provider secret store.
 - [ ] Deploy one exact reviewed `main` commit/image.

@@ -4,7 +4,7 @@ Telegram File Toolbox: send a file, choose an action, receive the result.
 
 ## Product status
 
-Private alpha is complete with RU/EN manual coverage and all runtime evidence gates satisfied. The repository is in RELEASE-001 public-readiness work: code, privacy, transport limits, production runbook, and release controls are being finalized. Public launch remains blocked on the real production/operator gates in `docs/RELEASE_CHECKLIST.md`.
+Private alpha is complete with RU/EN manual coverage and all runtime evidence gates satisfied. Repository-side public-readiness controls are implemented, and Railway is the selected first production hosting path. Public launch remains blocked on real provider deployment/operator evidence in `docs/RELEASE_CHECKLIST.md`.
 
 ## Product promise
 
@@ -94,6 +94,7 @@ Official reference: https://core.telegram.org/bots/api
 - docs/PRIVACY.md — public MVP privacy notice
 - docs/RETENTION.md — file/session/metadata retention contract
 - docs/PRODUCTION.md — public production, monitoring, smoke, and rollback runbook
+- docs/RAILWAY.md — first-release Railway deployment contract and evidence procedure
 - docs/RELEASE_CHECKLIST.md — RELEASE-001 repository and external gates
 - docs/ROADMAP.md — implementation sequence and release gates
 - docs/DEPLOYMENT.md — completed local private-alpha runbook

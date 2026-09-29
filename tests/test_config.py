@@ -17,6 +17,8 @@ def test_settings_defaults() -> None:
     assert settings.metadata_ttl_seconds == 7 * 24 * 60 * 60
     assert settings.retention_sweep_interval_seconds == 60
     assert settings.diagnostics_interval_seconds == 300
+    assert settings.runtime_lease_ttl_seconds == 30
+    assert settings.runtime_lease_acquire_timeout_seconds == 45
     assert settings.workspace_max_bytes == 64 * 1024 * 1024
     assert settings.update_rate_limit_per_minute == 60
     assert settings.max_active_jobs_per_user == 3
@@ -36,6 +38,8 @@ def test_settings_parse_values() -> None:
             "METADATA_TTL_SECONDS": "7200",
             "RETENTION_SWEEP_INTERVAL_SECONDS": "45",
             "DIAGNOSTICS_INTERVAL_SECONDS": "120",
+            "RUNTIME_LEASE_TTL_SECONDS": "20",
+            "RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS": "35",
             "WORKSPACE_MAX_BYTES": "12345",
             "UPDATE_RATE_LIMIT_PER_MINUTE": "12",
             "MAX_ACTIVE_JOBS_PER_USER": "2",
@@ -53,6 +57,8 @@ def test_settings_parse_values() -> None:
     assert settings.metadata_ttl_seconds == 7200
     assert settings.retention_sweep_interval_seconds == 45
     assert settings.diagnostics_interval_seconds == 120
+    assert settings.runtime_lease_ttl_seconds == 20
+    assert settings.runtime_lease_acquire_timeout_seconds == 35
     assert settings.workspace_max_bytes == 12345
     assert settings.update_rate_limit_per_minute == 12
     assert settings.max_active_jobs_per_user == 2
@@ -89,6 +95,8 @@ def test_provider_postgres_urls_use_asyncpg_driver(raw: str, expected: str) -> N
         "METADATA_TTL_SECONDS",
         "RETENTION_SWEEP_INTERVAL_SECONDS",
         "DIAGNOSTICS_INTERVAL_SECONDS",
+        "RUNTIME_LEASE_TTL_SECONDS",
+        "RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS",
         "WORKSPACE_MAX_BYTES",
         "UPDATE_RATE_LIMIT_PER_MINUTE",
         "MAX_ACTIVE_JOBS_PER_USER",
@@ -151,5 +159,15 @@ def test_retention_sweep_interval_cannot_exceed_metadata_ttl() -> None:
                 "TEMP_TTL_SECONDS": "3600",
                 "METADATA_TTL_SECONDS": "30",
                 "RETENTION_SWEEP_INTERVAL_SECONDS": "60",
+            }
+        )
+
+
+def test_runtime_lease_acquire_timeout_must_exceed_ttl() -> None:
+    with pytest.raises(SettingsError, match="must exceed RUNTIME_LEASE_TTL_SECONDS"):
+        Settings.from_mapping(
+            {
+                "RUNTIME_LEASE_TTL_SECONDS": "30",
+                "RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS": "30",
             }
         )

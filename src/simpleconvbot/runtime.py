@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from asyncio import Event, TaskGroup, create_task, wait_for
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from time import monotonic
@@ -37,6 +38,7 @@ from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
+from simpleconvbot.runtime_lease import RedisRuntimeLease
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
 from simpleconvbot.sessions import SessionPolicy
 from simpleconvbot.storage import LocalTemporaryStorage
@@ -153,10 +155,13 @@ async def run_polling(settings: Settings | None = None) -> None:
         ),
     )
     stop_runtime = Event()
+    lease = RedisRuntimeLease(
+        redis_client,
+        ttl_seconds=current.runtime_lease_ttl_seconds,
+    )
 
-    try:
+    async def owned_runtime() -> None:
         await create_schema(engine)
-        await redis_client.ping()
         await recovery.recover()
         _emit_retention_policy(
             ttl_seconds=current.temp_ttl_seconds,
@@ -215,10 +220,52 @@ async def run_polling(settings: Settings | None = None) -> None:
             stop_runtime.set()
             await retention_task
             await diagnostics_task
+
+    try:
+        await redis_client.ping()
+        await lease.acquire(
+            timeout_seconds=current.runtime_lease_acquire_timeout_seconds,
+        )
+        LOGGER.info("runtime singleton lease acquired")
+        try:
+            await _run_runtime_with_lease(lease, stop_runtime, owned_runtime)
+        finally:
+            try:
+                released = await lease.release()
+            except Exception:
+                LOGGER.exception("runtime singleton lease release failed")
+            else:
+                if released:
+                    LOGGER.info("runtime singleton lease released")
+                else:
+                    LOGGER.warning("runtime singleton lease was already lost before release")
     finally:
         await bot.session.close()
         await redis_client.aclose()
         await engine.dispose()
+
+
+async def _run_runtime_with_lease(
+    lease: RedisRuntimeLease,
+    stop: Event,
+    owned_runtime: Callable[[], Awaitable[None]],
+) -> None:
+    async def run_owned() -> None:
+        try:
+            await owned_runtime()
+        finally:
+            stop.set()
+
+    async def guard_lease() -> None:
+        try:
+            await lease.maintain(stop)
+        except Exception:
+            stop.set()
+            raise
+
+    async with TaskGroup() as tasks:
+        tasks.create_task(run_owned())
+        tasks.create_task(guard_lease())
 
 
 async def _run_polling_and_worker(
