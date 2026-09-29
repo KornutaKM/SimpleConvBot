@@ -195,10 +195,21 @@ def _button(text: str, callback_data: str) -> InlineKeyboardButton:
 def home_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button(_pick(locale, "📎 Отправить файл", "📎 Send a file"), SEND_FILE_CALLBACK)],
             [
-                _button(_pick(locale, "🧰 Все инструменты", "🧰 All tools"), TOOLS_CALLBACK),
-                _button(_pick(locale, "⚙️ Настройки", "⚙️ Settings"), SETTINGS_CALLBACK),
+                _button(
+                    _pick(locale, "📎 Отправить файл", "📎 Send a file"),
+                    SEND_FILE_CALLBACK,
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "🧰 Все инструменты", "🧰 All tools"),
+                    TOOLS_CALLBACK,
+                ),
+                _button(
+                    _pick(locale, "⚙️ Настройки", "⚙️ Settings"),
+                    SETTINGS_CALLBACK,
+                ),
             ],
         ]
     )
@@ -208,11 +219,26 @@ def tools_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     titles = CATEGORY_TITLES if locale is Locale.RU else _CATEGORY_EN
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button(titles["ui:cat:image"], "ui:cat:image"), _button(titles["ui:cat:video"], "ui:cat:video")],
-            [_button(titles["ui:cat:audio"], "ui:cat:audio"), _button(titles["ui:cat:document"], "ui:cat:document")],
-            [_button(titles["ui:cat:archive"], "ui:cat:archive"), _button(titles["ui:cat:data"], "ui:cat:data")],
-            [_button(titles["ui:cat:units"], "ui:cat:units"), _button(titles["ui:cat:qr"], "ui:cat:qr")],
-            [_button(titles["ui:cat:text"], "ui:cat:text"), _button(titles["ui:cat:utils"], "ui:cat:utils")],
+            [
+                _button(titles["ui:cat:image"], "ui:cat:image"),
+                _button(titles["ui:cat:video"], "ui:cat:video"),
+            ],
+            [
+                _button(titles["ui:cat:audio"], "ui:cat:audio"),
+                _button(titles["ui:cat:document"], "ui:cat:document"),
+            ],
+            [
+                _button(titles["ui:cat:archive"], "ui:cat:archive"),
+                _button(titles["ui:cat:data"], "ui:cat:data"),
+            ],
+            [
+                _button(titles["ui:cat:units"], "ui:cat:units"),
+                _button(titles["ui:cat:qr"], "ui:cat:qr"),
+            ],
+            [
+                _button(titles["ui:cat:text"], "ui:cat:text"),
+                _button(titles["ui:cat:utils"], "ui:cat:utils"),
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), HOME_CALLBACK)],
         ]
     )
@@ -221,8 +247,22 @@ def tools_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 def settings_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button(_pick(locale, "🌐 Язык · Telegram", "🌐 Language · Telegram"), "ui:setting:language")],
-            [_button(_pick(locale, "🗑 Автоудаление · 1 час", "🗑 Auto-delete · 1 hour"), "ui:setting:retention")],
+            [
+                _button(
+                    _pick(locale, "🌐 Язык · Telegram", "🌐 Language · Telegram"),
+                    "ui:setting:language",
+                )
+            ],
+            [
+                _button(
+                    _pick(
+                        locale,
+                        "🗑 Автоудаление · 1 час",
+                        "🗑 Auto-delete · 1 hour",
+                    ),
+                    "ui:setting:retention",
+                )
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), HOME_CALLBACK)],
         ]
     )
@@ -258,11 +298,20 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [_button("🖼 → JPG", "ui:pdf:jpg"), _button("🖼 → PNG", "ui:pdf:png")],
             [
-                _button(f"📑 {titles['ui:pdf:split'].replace(' PDF', '')}", "ui:pdf:split"),
-                _button(f"🧩 {titles['ui:pdf:merge'].replace(' PDF', '').replace('s', '') if locale is Locale.EN else 'Объединить'}", "ui:pdf:merge"),
+                _button(
+                    _pick(locale, "📑 Разделить", "📑 Split"),
+                    "ui:pdf:split",
+                ),
+                _button(
+                    _pick(locale, "🧩 Объединить", "🧩 Merge"),
+                    "ui:pdf:merge",
+                ),
             ],
             [
-                _button(f"🗜 {titles['ui:pdf:compress'].replace(' PDF', '')}", "ui:pdf:compress"),
+                _button(
+                    _pick(locale, "🗜 Сжать", "🗜 Compress"),
+                    "ui:pdf:compress",
+                ),
                 _button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info"),
             ],
             [_button(f"••• {titles['ui:pdf:more']}", "ui:pdf:more")],
@@ -274,7 +323,11 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 def audio_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button("MP3", "ui:audio:mp3"), _button("M4A", "ui:audio:m4a"), _button("WAV", "ui:audio:wav")],
+            [
+                _button("MP3", "ui:audio:mp3"),
+                _button("M4A", "ui:audio:m4a"),
+                _button("WAV", "ui:audio:wav"),
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )
@@ -284,8 +337,14 @@ def video_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     titles = VIDEO_ACTION_TITLES if locale is Locale.RU else _VIDEO_ACTION_EN
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button("🎵 MP3", "ui:video:mp3"), _button(f"🔇 {titles['ui:video:mute']}", "ui:video:mute")],
-            [_button("🎞 GIF", "ui:video:gif"), _button(f"🗜 {titles['ui:video:compress']}", "ui:video:compress")],
+            [
+                _button("🎵 MP3", "ui:video:mp3"),
+                _button(f"🔇 {titles['ui:video:mute']}", "ui:video:mute"),
+            ],
+            [
+                _button("🎞 GIF", "ui:video:gif"),
+                _button(f"🗜 {titles['ui:video:compress']}", "ui:video:compress"),
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )
@@ -298,7 +357,12 @@ def collection_keyboard(
     raw = str(session_id)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_button(_pick(locale, "➕ Добавить файл", "➕ Add file"), f"sess:add:{raw}")],
+            [
+                _button(
+                    _pick(locale, "➕ Добавить файл", "➕ Add file"),
+                    f"sess:add:{raw}",
+                )
+            ],
             [
                 _button(_pick(locale, "✅ Готово", "✅ Done"), f"sess:done:{raw}"),
                 _button(_pick(locale, "✖️ Отмена", "✖️ Cancel"), f"sess:cancel:{raw}"),
@@ -340,19 +404,25 @@ def collection_status_text(
 
 def category_back_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[_button(_pick(locale, "← Все инструменты", "← All tools"), TOOLS_CALLBACK)]]
+        inline_keyboard=[
+            [_button(_pick(locale, "← Все инструменты", "← All tools"), TOOLS_CALLBACK)]
+        ]
     )
 
 
 def image_back_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[_button(_pick(locale, "← К изображениям", "← Images"), "ui:cat:image")]]
+        inline_keyboard=[
+            [_button(_pick(locale, "← К изображениям", "← Images"), "ui:cat:image")]
+        ]
     )
 
 
 def pdf_back_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[_button(_pick(locale, "← К документам", "← Documents"), "ui:cat:document")]]
+        inline_keyboard=[
+            [_button(_pick(locale, "← К документам", "← Documents"), "ui:cat:document")]
+        ]
     )
 
 
@@ -401,7 +471,11 @@ def pdf_card(filename: str | None, size: int | None, locale: Locale = Locale.RU)
     )
 
 
-def audio_card(filename: str | None, size: int | None, locale: Locale = Locale.RU) -> str:
+def audio_card(
+    filename: str | None,
+    size: int | None,
+    locale: Locale = Locale.RU,
+) -> str:
     safe_name = escape(filename or _pick(locale, "Аудиофайл", "Audio file"))
     return (
         f"🎵 <b>{safe_name}</b>\n{format_file_size(size, locale)}\n\n"
@@ -409,7 +483,11 @@ def audio_card(filename: str | None, size: int | None, locale: Locale = Locale.R
     )
 
 
-def video_card(filename: str | None, size: int | None, locale: Locale = Locale.RU) -> str:
+def video_card(
+    filename: str | None,
+    size: int | None,
+    locale: Locale = Locale.RU,
+) -> str:
     safe_name = escape(filename or _pick(locale, "Видео", "Video"))
     return (
         f"🎬 <b>{safe_name}</b>\n{format_file_size(size, locale)}\n\n"
@@ -424,11 +502,19 @@ def unsupported_document_card(
     locale: Locale = Locale.RU,
 ) -> str:
     safe_name = escape(filename or _pick(locale, "Файл", "File"))
-    safe_mime = escape(mime_type or _pick(locale, "неизвестный формат", "unknown format"))
+    safe_mime = escape(
+        mime_type or _pick(locale, "неизвестный формат", "unknown format")
+    )
     body = _pick(
         locale,
-        "Для этого формата экран действий пока не подключён. Можно посмотреть доступные категории инструментов.",
-        "Actions for this format are not available yet. You can browse the available tool categories.",
+        (
+            "Для этого формата экран действий пока не подключён. "
+            "Можно посмотреть доступные категории инструментов."
+        ),
+        (
+            "Actions for this format are not available yet. "
+            "You can browse the available tool categories."
+        ),
     )
     return f"📎 <b>{safe_name}</b>\n{safe_mime} • {format_file_size(size, locale)}\n\n{body}"
 
@@ -452,7 +538,11 @@ def category_placeholder_text(title: str, locale: Locale = Locale.RU) -> str:
 
 
 def message_unavailable_text(locale: Locale) -> str:
-    return _pick(locale, "Сообщение больше недоступно.", "This message is no longer available.")
+    return _pick(
+        locale,
+        "Сообщение больше недоступно.",
+        "This message is no longer available.",
+    )
 
 
 def source_unavailable_text(locale: Locale) -> str:
@@ -467,7 +557,10 @@ def send_file_hint(locale: Locale) -> str:
     return _pick(
         locale,
         "Нажмите скрепку Telegram рядом с полем сообщения и выберите файл.",
-        "Tap the Telegram attachment button next to the message field and choose a file.",
+        (
+            "Tap the Telegram attachment button next to the message field "
+            "and choose a file."
+        ),
     )
 
 
@@ -475,8 +568,14 @@ def setting_notice_text(locale: Locale, setting: str | None) -> str:
     if setting == "ui:setting:language":
         return _pick(
             locale,
-            "SimpleConv автоматически использует язык вашего Telegram: русский или английский.",
-            "SimpleConv automatically follows your Telegram language: Russian or English.",
+            (
+                "SimpleConv автоматически использует язык вашего Telegram: "
+                "русский или английский."
+            ),
+            (
+                "SimpleConv automatically follows your Telegram language: "
+                "Russian or English."
+            ),
         )
     return _pick(
         locale,
@@ -494,11 +593,19 @@ def unknown_operation_text(locale: Locale) -> str:
 
 
 def session_unavailable_text(locale: Locale) -> str:
-    return _pick(locale, "Сессия временно недоступна.", "The session is temporarily unavailable.")
+    return _pick(
+        locale,
+        "Сессия временно недоступна.",
+        "The session is temporarily unavailable.",
+    )
 
 
 def session_add_hint(locale: Locale) -> str:
-    return _pick(locale, "Отправьте следующий файл в этот чат.", "Send the next file to this chat.")
+    return _pick(
+        locale,
+        "Отправьте следующий файл в этот чат.",
+        "Send the next file to this chat.",
+    )
 
 
 def session_cancelled_text(locale: Locale) -> str:
@@ -506,7 +613,11 @@ def session_cancelled_text(locale: Locale) -> str:
 
 
 def operation_accepted_text(locale: Locale) -> str:
-    return _pick(locale, "Принято. Начинаю обработку файла.", "Accepted. Processing has started.")
+    return _pick(
+        locale,
+        "Принято. Начинаю обработку файла.",
+        "Accepted. Processing has started.",
+    )
 
 
 def operation_duplicate_text(locale: Locale) -> str:
@@ -518,7 +629,11 @@ def operation_duplicate_text(locale: Locale) -> str:
 
 
 def collection_accepted_text(title: str, locale: Locale) -> str:
-    return _pick(locale, f"{title}: принято в обработку.", f"{title}: accepted for processing.")
+    return _pick(
+        locale,
+        f"{title}: принято в обработку.",
+        f"{title}: accepted for processing.",
+    )
 
 
 def collection_duplicate_text(locale: Locale) -> str:
