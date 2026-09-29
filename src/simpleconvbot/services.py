@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
-import logging
 from time import monotonic
 from uuid import UUID
 
@@ -35,7 +35,6 @@ from simpleconvbot.telemetry import (
 )
 
 LOGGER = logging.getLogger(__name__)
-
 
 
 @dataclass(frozen=True, slots=True)
