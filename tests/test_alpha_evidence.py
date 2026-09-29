@@ -62,6 +62,26 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
             }
         ),
         _log({"event": "update_deduplicated", "outcome": "success", "count": 1}),
+        _log(
+            {
+                "event": "input_rejected",
+                "outcome": "failure",
+                "error_code": "unsupported_document",
+                "count": 1,
+                "filename": "private.zip",
+                "user_id": 123,
+            }
+        ),
+        _log(
+            {
+                "event": "input_rejected",
+                "operation_id": "image.to_png",
+                "outcome": "failure",
+                "error_code": "telegram_input_too_large",
+                "count": 1,
+                "chat_id": 456,
+            }
+        ),
         _log({"event": "recovery_summary", "outcome": "success", "count": 0}),
         _log({"event": "recovery_summary", "outcome": "success", "count": 3}),
         _log({"event": "cleanup", "outcome": "success", "count": 2}),
@@ -113,6 +133,13 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
     assert image_runs["e2e_success"] == 0
 
     assert summary["duplicate_updates"] == {"events": 1, "dropped_total": 1}
+    assert summary["input_rejections"] == {
+        "events": 2,
+        "by_error_code": {
+            "telegram_input_too_large": 1,
+            "unsupported_document": 1,
+        },
+    }
     assert summary["recovery"] == {
         "summary_events": 2,
         "clean_summary_events": 1,
@@ -141,6 +168,7 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
     for forbidden in (
         "passport.pdf",
         "private.pdf",
+        "private.zip",
         "user_id",
         "chat_id",
         "file_path",
