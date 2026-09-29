@@ -4,7 +4,7 @@ Telegram File Toolbox: send a file, choose an action, receive the result.
 
 ## Product status
 
-Foundation / pre-MVP. The repository is being structured before implementation so that file processing, resource limits, privacy, and failure behavior are explicit contracts rather than implicit code behavior.
+Private-alpha candidate. Image, PDF, media, multi-file Telegram execution, security controls, RU/EN UX, observability, and bounded retention are implemented in the repository. Public release remains blocked on real deployed Telegram alpha evidence and the release gate.
 
 ## Product promise
 
