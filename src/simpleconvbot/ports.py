@@ -21,12 +21,12 @@ class LocalizedDeliveryText:
 
 @dataclass(frozen=True, slots=True)
 class ExecutionResult:
-    output_ref: str | None = None
+    output_ref: str = ""
     additional_output_refs: tuple[str, ...] = ()
     delivery_text: LocalizedDeliveryText | None = None
 
     def __post_init__(self) -> None:
-        has_output = self.output_ref is not None
+        has_output = bool(self.output_ref)
         has_text = self.delivery_text is not None
         if has_output == has_text:
             raise ValueError("execution result must contain either files or delivery text")
@@ -35,7 +35,7 @@ class ExecutionResult:
 
     @property
     def output_refs(self) -> tuple[str, ...]:
-        if self.output_ref is None:
+        if not self.output_ref:
             return ()
         return (self.output_ref, *self.additional_output_refs)
 
