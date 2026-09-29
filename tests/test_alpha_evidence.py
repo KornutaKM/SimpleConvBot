@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 
-from simpleconvbot.alpha_evidence import main, summarize_lines
+from simpleconvbot.alpha_evidence import apply_manual_review, main, summarize_lines
 
 
 def _log(payload: dict[str, object]) -> str:
@@ -345,3 +345,42 @@ def test_cli_require_runtime_gates_returns_two_when_evidence_is_incomplete(
     payload = json.loads(capsys.readouterr().out)
     gates = _mapping(payload["runtime_gates"])
     assert gates["machine_verifiable_ready"] is False
+
+
+def test_manual_review_completes_only_the_manual_half_of_alpha_gates() -> None:
+    summary = summarize_lines([])
+    gates = _mapping(summary["runtime_gates"])
+    assert gates["machine_verifiable_ready"] is False
+
+    manual = {
+        "commit_matches": True,
+        "manual_review_ready": True,
+        "locales": {
+            "ru": {"status": "PASS"},
+            "en": {"status": "PASS"},
+        },
+    }
+    apply_manual_review(summary, manual)
+
+    gates = _mapping(summary["runtime_gates"])
+    assert gates["manual_review_remaining"] == []
+    assert gates["all_alpha_gates_ready"] is False
+    assert summary["manual_review"] == manual
+
+
+def test_manual_review_keeps_failed_locale_pending() -> None:
+    summary = summarize_lines([])
+    manual = {
+        "commit_matches": True,
+        "manual_review_ready": False,
+        "locales": {
+            "ru": {"status": "PASS"},
+            "en": {"status": "PENDING"},
+        },
+    }
+
+    apply_manual_review(summary, manual)
+
+    gates = _mapping(summary["runtime_gates"])
+    assert gates["manual_review_remaining"] == ["english_ux_coverage"]
+    assert gates["all_alpha_gates_ready"] is False
