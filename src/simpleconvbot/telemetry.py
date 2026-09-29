@@ -48,6 +48,7 @@ class TelemetryEventType(StrEnum):
     RECOVERY_SUMMARY = "recovery_summary"
     UPDATE_DEDUPLICATED = "update_deduplicated"
     INPUT_REJECTED = "input_rejected"
+    RETENTION_POLICY = "retention_policy"
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +62,8 @@ class TelemetryEvent:
     error_code: str | None = None
     correlation_id: str | None = None
     count: int | None = None
+    ttl_seconds: int | None = None
+    interval_seconds: int | None = None
 
     def __post_init__(self) -> None:
         if self.timestamp.tzinfo is None:
@@ -79,6 +82,12 @@ class TelemetryEvent:
             raise ValueError("duration_ms must be finite and non-negative")
         if self.count is not None and self.count < 0:
             raise ValueError("count must be non-negative")
+        for name, value in (
+            ("ttl_seconds", self.ttl_seconds),
+            ("interval_seconds", self.interval_seconds),
+        ):
+            if value is not None and value <= 0:
+                raise ValueError(f"{name} must be greater than zero")
 
     @classmethod
     def now(
@@ -92,6 +101,8 @@ class TelemetryEvent:
         error_code: str | None = None,
         correlation_id: str | None = None,
         count: int | None = None,
+        ttl_seconds: int | None = None,
+        interval_seconds: int | None = None,
     ) -> TelemetryEvent:
         return cls(
             event_type=event_type,
@@ -103,6 +114,8 @@ class TelemetryEvent:
             error_code=error_code,
             correlation_id=correlation_id,
             count=count,
+            ttl_seconds=ttl_seconds,
+            interval_seconds=interval_seconds,
         )
 
     def to_payload(self) -> dict[str, object]:
@@ -124,6 +137,10 @@ class TelemetryEvent:
             payload["correlation_id"] = self.correlation_id
         if self.count is not None:
             payload["count"] = self.count
+        if self.ttl_seconds is not None:
+            payload["ttl_seconds"] = self.ttl_seconds
+        if self.interval_seconds is not None:
+            payload["interval_seconds"] = self.interval_seconds
         return payload
 
     def to_json(self) -> str:
