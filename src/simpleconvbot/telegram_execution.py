@@ -30,7 +30,13 @@ from simpleconvbot.media_engine import (
     VideoCompressionPreset,
 )
 from simpleconvbot.operations import OperationDefinition
-from simpleconvbot.pdf_engine import PdfEngine, PdfEngineError, PdfErrorCode
+from simpleconvbot.pdf_engine import (
+    PageRange,
+    PageSelection,
+    PdfEngine,
+    PdfEngineError,
+    PdfErrorCode,
+)
 from simpleconvbot.ports import DeliveryPort, ExecutionResult, OperationExecutor
 from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
@@ -54,6 +60,7 @@ from simpleconvbot.ui import operation_accepted_text, operation_duplicate_text
 LOGGER = logging.getLogger(__name__)
 INPUT_NAME = "input"
 TELEGRAM_MAX_RENDERED_PDF_PAGES = 20
+TELEGRAM_MAX_SPLIT_PDF_PAGES = 20
 TELEGRAM_MAX_COLLECTION_FILES = 20
 _COLLECTION_INPUT = re.compile(r"^input-(?P<position>[0-9]{4})$")
 
@@ -96,9 +103,12 @@ def image_operation(callback_data: str | None) -> str | None:
 
 
 def pdf_operation(callback_data: str | None) -> str | None:
-    if callback_data == "ui:pdf:png":
-        return "pdf.to_images"
-    return None
+    if callback_data is None:
+        return None
+    return {
+        "ui:pdf:png": "pdf.to_images",
+        "ui:pdf:split": "pdf.extract_pages",
+    }.get(callback_data)
 
 
 def audio_operation(callback_data: str | None) -> str | None:
@@ -191,6 +201,8 @@ class TelegramPdfExecutor(OperationExecutor):
                 result = await self._images_to_pdf(job, workspace)
             elif operation.operation_id == "pdf.merge":
                 result = await self._merge_pdfs(job, workspace)
+            elif operation.operation_id == "pdf.extract_pages":
+                result = await self._split_pdf(job)
             else:
                 raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
             await self._storage.enforce_quota(job.job_id)
@@ -222,6 +234,33 @@ class TelegramPdfExecutor(OperationExecutor):
             output_ref=refs[0],
             additional_output_refs=refs[1:],
         )
+
+    async def _split_pdf(self, job: JobSnapshot) -> ExecutionResult:
+        source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
+        info = await to_thread(self._engine.inspect, source)
+        if info.page_count > TELEGRAM_MAX_SPLIT_PDF_PAGES:
+            raise PdfEngineError(
+                PdfErrorCode.PAGE_LIMIT_EXCEEDED,
+                "Telegram PDF split exceeds the document fan-out limit",
+            )
+
+        refs: list[str] = []
+        for page_number in range(1, info.page_count + 1):
+            destination = await self._storage.workspace_file(
+                job.job_id,
+                f"page-{page_number:04d}.pdf",
+            )
+            await to_thread(
+                self._engine.extract_pages,
+                source,
+                destination,
+                PageSelection((PageRange(page_number, page_number),)),
+            )
+            refs.append(str(destination))
+
+        if not refs:
+            raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+        return ExecutionResult(output_ref=refs[0], additional_output_refs=tuple(refs[1:]))
 
     async def _images_to_pdf(
         self,
