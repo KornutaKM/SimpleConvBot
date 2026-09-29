@@ -113,7 +113,16 @@ class JobService:
             )
 
         if job.state is JobState.QUEUED:
-            await self._queue.enqueue(job.job_id)
+            try:
+                await self._queue.enqueue(job.job_id)
+            except Exception:
+                with suppress(InvalidTransition):
+                    job = await self._repository.transition(
+                        job.job_id,
+                        JobState.QUEUED,
+                        JobState.FAILED,
+                    )
+                raise
 
         return StartJobResult(job=job, created=created)
 
