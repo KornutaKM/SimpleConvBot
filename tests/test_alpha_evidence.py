@@ -152,6 +152,9 @@ def test_summary_proves_e2e_multifile_dedup_recovery_and_cleanup_without_identit
         "summary_events": 2,
         "clean_summary_events": 1,
         "actions_total": 3,
+        "inflight_queue_items": 0,
+        "interrupted_failed": 0,
+        "queued_reenqueued": 0,
     }
     assert summary["retention_cleanup"] == {
         "events": 2,
