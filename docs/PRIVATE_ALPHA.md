@@ -1,6 +1,6 @@
 # Private alpha checklist
 
-This checklist is the evidence gate for ALPHA-001. It distinguishes repository-proven behavior from work that still requires the real Telegram deployment.
+This checklist is the evidence gate for ALPHA-001. It distinguishes repository-proven behavior from work that still requires the real Telegram runtime.
 
 ## Already proven in repository CI
 
@@ -28,6 +28,7 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] real Telegram multi-file wiring for images-to-PDF and PDF merge
 - [x] RU/EN routing through gateway, sessions and queued delivery
 - [x] known oversized Telegram inputs fail before provider download with a stable RU/EN size-limit error
+- [x] local Docker Compose alpha profile runs app + PostgreSQL + Redis with health-gated dependencies and bounded app runtime settings
 
 ## Telegram end-to-end evidence still required
 
@@ -90,13 +91,15 @@ Minimum media cases:
 
 ## Evidence record per run
 
-Start every run by recording the exact GitHub `main` commit and the Railway
-deployment identity. Do not mix evidence from different deployed revisions.
+Start every run by recording the exact GitHub `main` commit and the local execution identity. Do not mix evidence from different revisions or rebuilt images.
+
+For Compose runs record the app image ID. For host-Python runs record the exact checked-out Git commit. A remote deployment identity is not required for the current alpha.
 
 Record aggregate operational evidence only:
 
 - build/main commit SHA
-- deployment identity/version
+- execution mode (`compose` or `host-python`)
+- local app image ID when applicable
 - operation_id
 - stage
 - success/failure
@@ -114,4 +117,6 @@ the private alpha. Do not infer failure classes from user content or filenames.
 
 ## Release boundary
 
-ALPHA-001 is not complete until the real Telegram bot code is present in GitHub and the deployed private-alpha path demonstrates the unchecked end-to-end items above. The current engine/control-plane/observability evidence is necessary but not a substitute for that deployment evidence.
+ALPHA-001 is not complete until the real Telegram bot code is present in GitHub and the local private-alpha runtime demonstrates the unchecked end-to-end items above. The current engine/control-plane/observability evidence is necessary but not a substitute for real Telegram runtime evidence.
+
+Remote hosting is optional future infrastructure and is not an ALPHA-001 acceptance dependency unless the project explicitly adopts it later.
