@@ -432,7 +432,9 @@ def test_single_file_download_rejects_known_oversize_before_provider_io(
 ) -> None:
     with caplog.at_level(logging.INFO, logger="simpleconvbot.telegram_execution"):
         asyncio.run(
-            _single_file_download_rejects_known_oversize_before_provider_io(tmp_path)
+            _single_file_download_rejects_known_oversize_before_provider_io(
+                tmp_path
+            )
         )
 
     payloads = [
