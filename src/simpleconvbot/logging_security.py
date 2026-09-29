@@ -5,13 +5,9 @@ import re
 from collections.abc import Iterable
 
 _REDACTED = "<redacted>"
-_PROVIDER_URL = re.compile(
-    r"(?i)\b(?:postgres(?:ql)?(?:\+asyncpg)?|redis)://[^\s\"'<>]+"
-)
+_PROVIDER_URL = re.compile(r"(?i)\b(?:postgres(?:ql)?(?:\+asyncpg)?|redis)://[^\s\"'<>]+")
 _TELEGRAM_TOKEN = re.compile(r"\b[0-9]{5,}:[A-Za-z0-9_-]{20,}\b")
-_AUTHORIZATION = re.compile(
-    r"(?i)\bauthorization\s*[:=]\s*(?:bearer\s+)?[^\s,;]+"
-)
+_AUTHORIZATION = re.compile(r"(?i)\bauthorization\s*[:=]\s*(?:bearer\s+)?[^\s,;]+")
 _FILE_FIELD = re.compile(
     r"(?i)\b(?:file(?:_| )?path|file(?:_| )?name|filename)\s*[:=]\s*"
     r"(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
