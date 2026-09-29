@@ -27,6 +27,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from simpleconvbot.jobs import (
     ACTIVE_STATES,
+    TERMINAL_STATES,
     CreateJob,
     InvalidTransition,
     JobAdmissionCode,
@@ -36,8 +37,8 @@ from simpleconvbot.jobs import (
     JobSnapshot,
     JobState,
     ensure_transition,
-    TERMINAL_STATES,
 )
+
 from simpleconvbot.sessions import (
     CollectionSessionSnapshot,
     FinalizedSessionPlan,
