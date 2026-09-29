@@ -454,7 +454,6 @@ async def _single_file_download_rejects_known_oversize_before_provider_io(
     assert not (root / str(job.job_id)).exists()
 
 
-
 def test_single_file_download_rejects_cloud_transport_oversize_before_provider_io(
     tmp_path: Path,
 ) -> None:
