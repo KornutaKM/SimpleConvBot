@@ -11,9 +11,16 @@ from aiogram.enums import ParseMode
 from aiogram.types import CallbackQuery, Message
 
 from simpleconvbot.jobs import JobAdmissionRejected, JobSnapshot, JobState
-from simpleconvbot.localization import (\n    Locale,\n    UserErrorCode,\n    error_text,\n    operation_title,\n    resolve_locale,\n)
+from simpleconvbot.localization import (
+    Locale,
+    UserErrorCode,
+    error_text,
+    operation_title,
+    resolve_locale,
+)
 from simpleconvbot.postgres import PostgresCollectionSessionRepository
-from simpleconvbot.redis_locale import RedisUserLocaleStore\nfrom simpleconvbot.redis_security import RedisUpdateRateLimiter
+from simpleconvbot.redis_locale import RedisUserLocaleStore
+from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
 from simpleconvbot.services import JobService, StartJobRequest
 from simpleconvbot.sessions import (
