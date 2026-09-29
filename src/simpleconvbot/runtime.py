@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-from asyncio import Event, create_task, wait_for
+from asyncio import Event, TaskGroup, create_task, wait_for
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from time import monotonic
 
-from aiogram import Bot
+from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -179,7 +179,6 @@ async def run_polling(settings: Settings | None = None) -> None:
             ],
             language_code="ru",
         )
-        worker_task = create_task(_run_worker(worker, stop_runtime))
         retention_task = create_task(
             _run_retention(
                 retention,
@@ -200,16 +199,33 @@ async def run_polling(settings: Settings | None = None) -> None:
             )
         )
         try:
-            await dispatcher.start_polling(bot)
+            await _run_polling_and_worker(dispatcher, bot, worker, stop_runtime)
         finally:
             stop_runtime.set()
-            await worker_task
             await retention_task
             await diagnostics_task
     finally:
         await bot.session.close()
         await redis_client.aclose()
         await engine.dispose()
+
+
+async def _run_polling_and_worker(
+    dispatcher: Dispatcher,
+    bot: Bot,
+    worker: QueueWorker,
+    stop: Event,
+) -> None:
+    async with TaskGroup() as tasks:
+        tasks.create_task(_run_dispatcher(dispatcher, bot, stop))
+        tasks.create_task(_run_worker(worker, stop))
+
+
+async def _run_dispatcher(dispatcher: Dispatcher, bot: Bot, stop: Event) -> None:
+    try:
+        await dispatcher.start_polling(bot)
+    finally:
+        stop.set()
 
 
 async def _run_worker(worker: QueueWorker, stop: Event) -> None:

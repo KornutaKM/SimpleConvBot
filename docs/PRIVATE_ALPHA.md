@@ -23,6 +23,7 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] bounded retention sweep for stale workspaces and expired collection sessions
 - [x] production runtime startup + periodic retention sweep wiring
 - [x] startup recovery requeues QUEUED jobs and fails interrupted active jobs closed without re-upload
+- [x] unexpected queue-worker task failure tears down polling so restart recovery can run
 - [x] real Telegram execution wiring for image/PDF/media operations
 - [x] real Telegram multi-file wiring for images-to-PDF and PDF merge
 - [x] RU/EN routing through gateway, sessions and queued delivery
