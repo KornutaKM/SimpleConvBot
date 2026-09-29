@@ -11,6 +11,7 @@ import pytest
 from redis.asyncio import Redis
 
 from simpleconvbot.jobs import CreateJob, JobState
+from simpleconvbot.localization import UserErrorCode
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition, OperationRegistry
 from simpleconvbot.ports import ExecutionResult
@@ -22,6 +23,7 @@ from simpleconvbot.postgres import (
     make_engine,
     make_session_factory,
 )
+from simpleconvbot.recovery import StartupRecoveryService
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.services import JobService, JobWorker, QueueWorker, StartJobRequest
 from simpleconvbot.storage import LocalTemporaryStorage
@@ -322,3 +324,166 @@ async def _repository_restart_preserves_uncertain_state() -> None:
     finally:
         await redis_client.aclose()
         await engine.dispose()
+
+
+@pytest.mark.integration
+def test_restart_recovery_fails_processing_job_without_duplicate_execution() -> None:
+    asyncio.run(_restart_recovery_fails_processing_job_without_duplicate_execution())
+
+
+async def _restart_recovery_fails_processing_job_without_duplicate_execution() -> None:
+    database_url = os.environ["DATABASE_URL"]
+    redis_url = os.environ["REDIS_URL"]
+    engine = make_engine(database_url)
+    sessions = make_session_factory(engine)
+    redis_client = Redis.from_url(redis_url, decode_responses=True)
+    temp_root = Path(tempfile.mkdtemp(prefix="simpleconvbot-recovery-processing-"))
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+        await redis_client.flushdb()
+
+        repository = PostgresJobRepository(sessions)
+        queue = RedisJobQueue(redis_client, prefix="test:restart-processing")
+        registry = OperationRegistry([OperationDefinition("test.noop", 1, "test")])
+        service = JobService(repository, queue, registry)
+        started = await service.start_operation(
+            StartJobRequest(
+                user_id=401,
+                chat_id=402,
+                source_message_id=403,
+                operation_id="test.noop",
+                operation_version=1,
+            )
+        )
+
+        reserved = await queue.reserve(1)
+        assert reserved == started.job.job_id
+        processing = await repository.transition(
+            started.job.job_id,
+            JobState.QUEUED,
+            JobState.PROCESSING,
+        )
+        assert processing.state is JobState.PROCESSING
+
+        storage = LocalTemporaryStorage(temp_root)
+        workspace = await storage.ensure_workspace(started.job.job_id)
+        (workspace / "partial.bin").write_bytes(b"partial")
+
+        failure_delivery = RecordingFailureDelivery()
+        recovery = await StartupRecoveryService(
+            repository=repository,
+            queue=queue,
+            storage=storage,
+            failure_delivery=failure_delivery,
+        ).recover()
+
+        assert recovery.inflight_queue_items == 1
+        assert recovery.interrupted_failed == 1
+        assert recovery.queued_reenqueued == 0
+        failed = await repository.get(started.job.job_id)
+        assert failed.state is JobState.FAILED
+        assert not workspace.exists()
+        assert failure_delivery.error_codes == [UserErrorCode.RESTART_INTERRUPTED.value]
+
+        executor = CountingExecutor()
+        delivery = RecordingDelivery()
+        runner = QueueWorker(
+            queue,
+            JobWorker(
+                repository=repository,
+                registry=registry,
+                storage=storage,
+                executor=executor,
+                delivery=delivery,
+            ),
+        )
+
+        assert await runner.run_once()
+        assert executor.calls == 0
+        assert delivery.outputs == []
+        assert (await repository.get(started.job.job_id)).state is JobState.FAILED
+    finally:
+        await redis_client.aclose()
+        await engine.dispose()
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
+@pytest.mark.integration
+def test_restart_recovery_reenqueues_queued_job_missing_from_redis() -> None:
+    asyncio.run(_restart_recovery_reenqueues_queued_job_missing_from_redis())
+
+
+async def _restart_recovery_reenqueues_queued_job_missing_from_redis() -> None:
+    database_url = os.environ["DATABASE_URL"]
+    redis_url = os.environ["REDIS_URL"]
+    engine = make_engine(database_url)
+    sessions = make_session_factory(engine)
+    redis_client = Redis.from_url(redis_url, decode_responses=True)
+    temp_root = Path(tempfile.mkdtemp(prefix="simpleconvbot-recovery-queued-"))
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+        await redis_client.flushdb()
+
+        repository = PostgresJobRepository(sessions)
+        queue = RedisJobQueue(redis_client, prefix="test:restart-queued")
+        registry = OperationRegistry([OperationDefinition("test.noop", 1, "test")])
+        created, was_created = await repository.create_or_get(
+            CreateJob(
+                idempotency_key="restart-missing-queue",
+                operation_id="test.noop",
+                operation_version=1,
+                user_id=501,
+                chat_id=502,
+                source_message_id=503,
+            )
+        )
+        assert was_created
+        validating = await repository.transition(
+            created.job_id,
+            JobState.RECEIVED,
+            JobState.VALIDATING,
+        )
+        queued = await repository.transition(
+            validating.job_id,
+            JobState.VALIDATING,
+            JobState.QUEUED,
+        )
+        assert queued.state is JobState.QUEUED
+
+        storage = LocalTemporaryStorage(temp_root)
+        recovery = await StartupRecoveryService(
+            repository=repository,
+            queue=queue,
+            storage=storage,
+        ).recover()
+
+        assert recovery.inflight_queue_items == 0
+        assert recovery.interrupted_failed == 0
+        assert recovery.queued_reenqueued == 1
+
+        executor = CountingExecutor()
+        delivery = RecordingDelivery()
+        runner = QueueWorker(
+            queue,
+            JobWorker(
+                repository=repository,
+                registry=registry,
+                storage=storage,
+                executor=executor,
+                delivery=delivery,
+            ),
+        )
+
+        assert await runner.run_once()
+        final = await repository.get(queued.job_id)
+        assert final.state is JobState.COMPLETED
+        assert executor.calls == 1
+        assert len(delivery.outputs) == 1
+    finally:
+        await redis_client.aclose()
+        await engine.dispose()
+        shutil.rmtree(temp_root, ignore_errors=True)

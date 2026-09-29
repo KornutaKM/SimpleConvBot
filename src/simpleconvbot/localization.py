@@ -43,6 +43,7 @@ class UserErrorCode(StrEnum):
     TELEGRAM_FILE_SIZE_UNKNOWN = "telegram_file_size_unknown"
     TELEGRAM_DOWNLOAD_FAILED = "telegram_download_failed"
     TELEGRAM_UPLOAD_FAILED = "telegram_upload_failed"
+    RESTART_INTERRUPTED = "restart_interrupted"
     INTERNAL_ERROR = "internal_error"
 
 
@@ -329,6 +330,12 @@ _ERROR_TEXT: dict[str, LocalizedText] = {
     "telegram_upload_failed": LocalizedText(
         "Не удалось отправить результат в Telegram. Попробуйте ещё раз позже.",
         "The result could not be sent to Telegram. Please try again later.",
+    ),
+    "restart_interrupted": LocalizedText(
+        "Сервис перезапустился во время операции. "
+        "Если результат не пришёл, отправьте файл ещё раз.",
+        "The service restarted during the operation. "
+        "If you did not receive the result, send the file again.",
     ),
     "internal_error": LocalizedText(
         "Произошла внутренняя ошибка. Попробуйте ещё раз позже.",

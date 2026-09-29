@@ -31,6 +31,7 @@ from simpleconvbot.postgres import (
     make_engine,
     make_session_factory,
 )
+from simpleconvbot.recovery import StartupRecoveryService
 from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
@@ -122,6 +123,12 @@ async def run_polling(settings: Settings | None = None) -> None:
         collections,
     )
     delivery = TelegramDelivery(bot, locale_store, metrics)
+    recovery = StartupRecoveryService(
+        repository=repository,
+        queue=queue,
+        storage=storage,
+        failure_delivery=delivery,
+    )
     retention = RetentionSweepService(
         workspace_reaper=storage,
         session_reaper=session_repository,
@@ -145,7 +152,7 @@ async def run_polling(settings: Settings | None = None) -> None:
     try:
         await create_schema(engine)
         await redis_client.ping()
-        await queue.recover_inflight()
+        await recovery.recover()
         initial_retention = await retention.sweep()
         _require_complete_initial_retention(initial_retention)
         initial_health = await collect_health(engine, redis_client)
