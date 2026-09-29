@@ -42,7 +42,12 @@ def current_git_commit() -> str:
     return commit
 
 
-def new_review(*, commit_sha: str, execution_mode: str, runtime_identity: str) -> dict[str, object]:
+def new_review(
+    *,
+    commit_sha: str,
+    execution_mode: str,
+    runtime_identity: str,
+) -> dict[str, object]:
     _validate_commit(commit_sha)
     if execution_mode not in {"compose", "host-python"}:
         raise ValueError("execution_mode must be compose or host-python")
@@ -55,8 +60,7 @@ def new_review(*, commit_sha: str, execution_mode: str, runtime_identity: str) -
         "runtime_identity": runtime_identity,
         "updated_at": datetime.now(UTC).isoformat(),
         "locales": {
-            locale: {check_id: "pending" for check_id in CHECK_IDS}
-            for locale in LOCALES
+            locale: {check_id: "pending" for check_id in CHECK_IDS} for locale in LOCALES
         },
     }
 
@@ -155,7 +159,10 @@ def _validate_review(review: dict[str, object]) -> None:
     if review["execution_mode"] not in {"compose", "host-python"}:
         raise ValueError("invalid execution_mode")
     runtime_identity = review["runtime_identity"]
-    if not isinstance(runtime_identity, str) or _RUNTIME_ID.fullmatch(runtime_identity) is None:
+    if (
+        not isinstance(runtime_identity, str)
+        or _RUNTIME_ID.fullmatch(runtime_identity) is None
+    ):
         raise ValueError("invalid runtime_identity")
     updated_at = review["updated_at"]
     if not isinstance(updated_at, str):
@@ -220,7 +227,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "mark":
         if review["commit_sha"] != current_commit:
             raise ValueError("manual review commit does not match current git HEAD")
-        mark_review(review, locale=args.locale, check_id=args.check, status=args.status)
+        mark_review(
+            review,
+            locale=args.locale,
+            check_id=args.check,
+            status=args.status,
+        )
         save_review(args.input, review)
 
     summary = review_summary(review, expected_commit=current_commit)
