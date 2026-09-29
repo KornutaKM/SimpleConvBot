@@ -18,15 +18,14 @@ from simpleconvbot.ui import (
     format_file_size,
     home_keyboard,
     image_actions_keyboard,
-    pdf_card,
-    settings_text,
-    welcome_text,
     image_document_card,
     pdf_actions_keyboard,
+    pdf_card,
+    settings_text,
     tools_keyboard,
     video_actions_keyboard,
+    welcome_text,
 )
-
 
 def _callback_data(markup: InlineKeyboardMarkup) -> set[str]:
     return {
