@@ -118,6 +118,17 @@ Record aggregate operational evidence only:
 
 Do not record original filenames, Telegram file paths, user/chat IDs, provider URLs, secrets, or message contents.
 
+After a local Compose run, generate the bounded evidence summary directly from logs:
+
+```powershell
+docker compose logs --since=10m app | python scripts/alpha_evidence.py
+```
+
+The summarizer emits only allowlisted aggregate fields. It counts complete correlated E2E
+operation runs, multi-file E2E runs, duplicate-update suppression, startup recovery summaries,
+retention cleanup, current health readiness, and the latest aggregate failure classes. It never
+echoes raw log lines or unknown payload fields.
+
 Before public launch, use the aggregate failure-class counters from
 `admin_diagnostic` to identify the dominant stable error codes observed during
 the private alpha. Do not infer failure classes from user content or filenames.
