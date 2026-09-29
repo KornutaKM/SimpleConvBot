@@ -96,13 +96,9 @@ class TelegramCollectionGateway:
         locale: Locale | None = None,
     ) -> None:
         user = message.from_user
-        current_locale = locale or resolve_locale(
-            user.language_code if user is not None else None
-        )
+        current_locale = locale or resolve_locale(user.language_code if user is not None else None)
         if user is None:
-            await message.answer(
-                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
-            )
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
         await _remember_locale(self._locale_store, user.id, current_locale)
         if not await self._rate_limiter.allow(user.id):
@@ -154,9 +150,7 @@ class TelegramCollectionGateway:
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(
-                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
-            )
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
 
         created_session_id: UUID | None = None
@@ -256,9 +250,7 @@ class TelegramCollectionGateway:
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(
-                error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale)
-            )
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return True
 
         try:
