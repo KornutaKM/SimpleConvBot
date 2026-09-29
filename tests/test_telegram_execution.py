@@ -39,6 +39,7 @@ from simpleconvbot.telemetry import OperationStage
 def test_callback_mappings_are_explicit_and_closed() -> None:
     assert image_operation("ui:image:png") == "image.to_png"
     assert image_operation("ui:image:resize") is None
+    assert pdf_operation("ui:pdf:jpg") == "pdf.to_jpeg_images"
     assert pdf_operation("ui:pdf:png") == "pdf.to_images"
     assert pdf_operation("ui:pdf:split") == "pdf.extract_pages"
     assert audio_operation("ui:audio:mp3") == "audio.to_mp3"
@@ -102,6 +103,38 @@ async def _pdf_executor_returns_all_rendered_pages(tmp_path: Path) -> None:
     for output in result.output_refs:
         with Image.open(output) as rendered:
             assert rendered.format == "PNG"
+
+
+def test_pdf_executor_returns_all_rendered_jpeg_pages(tmp_path: Path) -> None:
+    asyncio.run(_pdf_executor_returns_all_rendered_jpeg_pages(tmp_path))
+
+
+async def _pdf_executor_returns_all_rendered_jpeg_pages(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("pdf.to_jpeg_images")
+    source = await storage.workspace_file(job.job_id, "input")
+    writer = PdfWriter()
+    try:
+        writer.add_blank_page(width=72, height=72)
+        writer.add_blank_page(width=144, height=72)
+        with source.open("wb") as stream:
+            writer.write(stream)
+    finally:
+        writer.close()
+
+    result = await TelegramPdfExecutor(storage).execute(
+        job,
+        OperationDefinition("pdf.to_jpeg_images", 1, "pdf"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert tuple(Path(value).name for value in result.output_refs) == (
+        "page-0001.jpg",
+        "page-0002.jpg",
+    )
+    for output in result.output_refs:
+        with Image.open(output) as rendered:
+            assert rendered.format == "JPEG"
 
 
 def test_pdf_executor_splits_pdf_into_one_document_per_page(tmp_path: Path) -> None:

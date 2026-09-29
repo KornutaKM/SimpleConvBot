@@ -10,7 +10,12 @@ import pypdfium2 as pdfium  # type: ignore[import-untyped]
 from PIL import Image, ImageOps
 from pypdf import PdfReader, PdfWriter
 
-from simpleconvbot.image_engine import ImageEngine, ImageEngineError, ImagePolicy
+from simpleconvbot.image_engine import (
+    ImageEngine,
+    ImageEngineError,
+    ImageOutputFormat,
+    ImagePolicy,
+)
 
 
 class PdfErrorCode(StrEnum):
@@ -157,7 +162,10 @@ class PdfEngine:
         source: Path,
         output_dir: Path,
         selection: PageSelection | None = None,
+        output_format: ImageOutputFormat = ImageOutputFormat.PNG,
     ) -> RenderedPages:
+        if output_format not in (ImageOutputFormat.PNG, ImageOutputFormat.JPEG):
+            raise ValueError("PDF rendering supports only PNG and JPEG output")
         input_info = self.inspect(source)
         indices = (
             tuple(range(input_info.page_count))
@@ -200,8 +208,9 @@ class PdfEngine:
                                 "rendered page would exceed pixel limit",
                             )
 
-                        final = output_dir / f"page-{output_number:04d}.png"
-                        partial = output_dir / f".page-{output_number:04d}.partial.png"
+                        suffix = "jpg" if output_format is ImageOutputFormat.JPEG else "png"
+                        final = output_dir / f"page-{output_number:04d}.{suffix}"
+                        partial = output_dir / f".page-{output_number:04d}.partial.{suffix}"
                         final.unlink(missing_ok=True)
                         partial.unlink(missing_ok=True)
                         generated_paths.extend((partial, final))
@@ -217,7 +226,19 @@ class PdfEngine:
                         try:
                             rendered = bitmap.to_pil()
                             try:
-                                rendered.save(partial, format="PNG", optimize=True)
+                                if output_format is ImageOutputFormat.JPEG:
+                                    converted = rendered.convert("RGB")
+                                    try:
+                                        converted.save(
+                                            partial,
+                                            format="JPEG",
+                                            quality=90,
+                                            optimize=True,
+                                        )
+                                    finally:
+                                        converted.close()
+                                else:
+                                    rendered.save(partial, format="PNG", optimize=True)
                             finally:
                                 rendered.close()
                         finally:

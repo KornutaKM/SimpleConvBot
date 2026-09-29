@@ -287,7 +287,7 @@ def create_router(
             SessionKind.PDF_MERGE,
         )
 
-    @router.callback_query(F.data.in_({"ui:pdf:png", "ui:pdf:split"}))
+    @router.callback_query(F.data.in_({"ui:pdf:jpg", "ui:pdf:png", "ui:pdf:split"}))
     async def execute_pdf_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, pdf_operation(callback.data))
 

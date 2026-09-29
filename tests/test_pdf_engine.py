@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
+from simpleconvbot.image_engine import ImageOutputFormat
 from simpleconvbot.pdf_engine import (
     PageRange,
     PageSelection,
@@ -165,6 +166,31 @@ def test_pdf_to_images_renders_and_validates_every_page(tmp_path: Path) -> None:
         assert second.format == "PNG"
         assert second.size == (288, 144)
     assert not tuple(output_dir.glob("*.partial.png"))
+
+
+def test_pdf_to_jpeg_renders_and_validates_every_page(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    output_dir = tmp_path / "pages-jpeg"
+    _make_pdf(source, ((72, 72), (144, 72)))
+
+    result = PdfEngine().render_pages(
+        source,
+        output_dir,
+        output_format=ImageOutputFormat.JPEG,
+    )
+
+    assert len(result.output_paths) == 2
+    assert tuple(path.name for path in result.output_paths) == (
+        "page-0001.jpg",
+        "page-0002.jpg",
+    )
+    with Image.open(result.output_paths[0]) as first:
+        assert first.format == "JPEG"
+        assert first.size == (144, 144)
+    with Image.open(result.output_paths[1]) as second:
+        assert second.format == "JPEG"
+        assert second.size == (288, 144)
+    assert not tuple(output_dir.glob("*.partial.jpg"))
 
 
 def test_pdf_render_rejects_pixel_bomb_before_render(tmp_path: Path) -> None:
