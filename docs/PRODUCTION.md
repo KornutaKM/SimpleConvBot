@@ -4,6 +4,9 @@ This runbook covers the provider-neutral requirements for RELEASE-001. The
 private-alpha evidence is already complete; a public release still requires a
 real continuously available production runtime and operator evidence.
 
+The selected first-release provider is Railway. Use `docs/RAILWAY.md` together
+with this provider-neutral contract.
+
 ## Production shape
 
 Run exactly one SimpleConvBot polling application for the public bot token,
@@ -18,6 +21,9 @@ required for the MVP.
 
 Do not run a second polling process with the same bot token. A second process
 can cause Telegram `getUpdates` conflicts and invalid production evidence.
+The production runtime therefore uses a Redis-backed singleton lease around
+startup recovery, worker execution, retention, diagnostics, and Telegram
+polling. Lease loss is fail-closed.
 
 ## Required environment
 
