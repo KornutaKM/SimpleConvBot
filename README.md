@@ -4,7 +4,7 @@ Telegram File Toolbox: send a file, choose an action, receive the result.
 
 ## Product status
 
-Private-alpha candidate. Image, PDF, media, multi-file Telegram execution, security controls, RU/EN UX, observability, and bounded retention are implemented in the repository. Public release remains blocked on real deployed Telegram alpha evidence and the release gate.
+Private-alpha candidate. Image, PDF, media, multi-file Telegram execution, security controls, RU/EN UX, observability, bounded retention, and a reproducible local alpha runtime are implemented in the repository. Public release remains blocked on real local Telegram alpha evidence and the release gate.
 
 ## Product promise
 
@@ -34,10 +34,9 @@ Initial stack:
 
 - Python
 - aiogram
-- FastAPI
 - PostgreSQL
 - Redis
-- isolated workers
+- isolated/bounded conversion workers
 - FFmpeg / ffprobe
 - Pillow and/or libvips
 - libheif
@@ -46,6 +45,24 @@ Initial stack:
 The bot gateway never constructs arbitrary shell commands from user input. File operations are selected from a fixed operation registry and executed by bounded workers.
 
 See docs/ARCHITECTURE.md and docs/SECURITY_PRIVACY.md.
+
+## Local private alpha
+
+The current alpha runs locally; Railway or another remote host is not required.
+
+For the reproducible Docker path:
+
+1. Copy `.env.example` to `.env`.
+2. Set `TELEGRAM_BOT_TOKEN` and a local PostgreSQL password.
+3. Run:
+
+   ```bash
+   docker compose --profile bot up --build
+   ```
+
+This starts exactly one bot application together with PostgreSQL and Redis. See
+`docs/DEPLOYMENT.md` for host-Python mode, evidence capture, restart behavior,
+and the Telegram end-to-end checklist.
 
 ## Telegram transport
 
@@ -75,7 +92,8 @@ Official reference: https://core.telegram.org/bots/api
 - docs/ARCHITECTURE.md — system design and state machines
 - docs/SECURITY_PRIVACY.md — threat model and privacy contract
 - docs/ROADMAP.md — implementation sequence and release gates
-- docs/DEPLOYMENT.md — private Telegram deployment runbook
+- docs/DEPLOYMENT.md — local private Telegram alpha runbook
+- docs/PRIVATE_ALPHA.md — alpha evidence checklist
 
 ## Working model
 

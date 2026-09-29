@@ -1,4 +1,42 @@
 services:
+  app:
+    profiles: ["bot"]
+    build:
+      context: .
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
+      REDIS_URL: redis://redis:6379/0
+      TEMP_ROOT: /app/var/jobs
+      TEMP_TTL_SECONDS: ${TEMP_TTL_SECONDS:-3600}
+      RETENTION_SWEEP_INTERVAL_SECONDS: ${RETENTION_SWEEP_INTERVAL_SECONDS:-60}
+      DIAGNOSTICS_INTERVAL_SECONDS: ${DIAGNOSTICS_INTERVAL_SECONDS:-300}
+      WORKSPACE_MAX_BYTES: ${WORKSPACE_MAX_BYTES:-67108864}
+      UPDATE_RATE_LIMIT_PER_MINUTE: ${UPDATE_RATE_LIMIT_PER_MINUTE:-60}
+      MAX_ACTIVE_JOBS_PER_USER: ${MAX_ACTIVE_JOBS_PER_USER:-3}
+      MAX_ACTIVE_JOBS_GLOBAL: ${MAX_ACTIVE_JOBS_GLOBAL:-32}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    tmpfs:
+      - /app/var/jobs:rw,nosuid,nodev,noexec,size=536870912,uid=10001,gid=10001,mode=0700
+      - /tmp:rw,nosuid,nodev,noexec,size=67108864,uid=10001,gid=10001,mode=1777
+    restart: "no"
+    stop_grace_period: 20s
+
   postgres:
     image: postgres:16.6-alpine
     environment:
