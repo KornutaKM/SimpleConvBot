@@ -457,9 +457,7 @@ async def _single_file_download_rejects_known_oversize_before_provider_io(
 def test_single_file_download_rejects_cloud_transport_oversize_before_provider_io(
     tmp_path: Path,
 ) -> None:
-    asyncio.run(
-        _single_file_download_rejects_cloud_transport_oversize_before_provider_io(tmp_path)
-    )
+    asyncio.run(_single_file_download_rejects_cloud_transport_oversize_before_provider_io(tmp_path))
 
 
 async def _single_file_download_rejects_cloud_transport_oversize_before_provider_io(
