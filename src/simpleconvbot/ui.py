@@ -197,7 +197,7 @@ def home_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 _button(
-                    _pick(locale, "📎 Как отправить файл", "📎 How to send a file"),
+                    _pick(locale, "📎 Отправить файл", "📎 Send a file"),
                     SEND_FILE_CALLBACK,
                 )
             ],
