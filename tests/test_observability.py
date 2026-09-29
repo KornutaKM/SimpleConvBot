@@ -280,3 +280,30 @@ def test_failure_class_metrics_reject_free_form_error_codes() -> None:
             duration_ms=1,
             error_code="unsafe filename: passport.pdf",
         )
+
+
+def test_failed_operation_telemetry_requires_error_code() -> None:
+    event = TelemetryEvent(
+        event_type=TelemetryEventType.OPERATION_STAGE,
+        timestamp=datetime.now(UTC),
+        operation_id="image.to_png",
+        stage=OperationStage.WORKER,
+        outcome=OperationOutcome.FAILURE,
+        duration_ms=1,
+    )
+
+    with pytest.raises(ValueError, match="requires error_code"):
+        emit_operation_telemetry(logging.getLogger("simpleconvbot.test"), event)
+
+
+def test_successful_operation_metrics_reject_error_code() -> None:
+    registry = MetricsRegistry()
+
+    with pytest.raises(ValueError, match="must not include error_code"):
+        registry.record_operation(
+            operation_id="image.to_png",
+            stage=OperationStage.WORKER,
+            outcome=OperationOutcome.SUCCESS,
+            duration_ms=1,
+            error_code="internal_error",
+        )
