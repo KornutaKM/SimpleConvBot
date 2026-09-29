@@ -5,10 +5,10 @@ import logging
 import math
 import re
 from dataclasses import dataclass
-from typing import Protocol
 from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import blake2b
+from typing import Protocol
 from uuid import UUID
 
 _SAFE_ID = re.compile(r"^[a-z0-9]+(?:[._:-][a-z0-9]+)*$")
