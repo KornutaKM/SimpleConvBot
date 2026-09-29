@@ -47,6 +47,7 @@ class TelemetryEventType(StrEnum):
     RECOVERY = "recovery"
     RECOVERY_SUMMARY = "recovery_summary"
     UPDATE_DEDUPLICATED = "update_deduplicated"
+    INPUT_REJECTED = "input_rejected"
 
 
 @dataclass(frozen=True, slots=True)
