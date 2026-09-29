@@ -332,8 +332,10 @@ _ERROR_TEXT: dict[str, LocalizedText] = {
         "The result could not be sent to Telegram. Please try again later.",
     ),
     "restart_interrupted": LocalizedText(
-        "Сервис перезапустился во время операции. Если результат не пришёл, отправьте файл ещё раз.",
-        "The service restarted during the operation. If you did not receive the result, send the file again.",
+        "Сервис перезапустился во время операции. "
+        "Если результат не пришёл, отправьте файл ещё раз.",
+        "The service restarted during the operation. "
+        "If you did not receive the result, send the file again.",
     ),
     "internal_error": LocalizedText(
         "Произошла внутренняя ошибка. Попробуйте ещё раз позже.",
