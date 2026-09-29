@@ -19,10 +19,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help=(
-            "Apply the canonical profile through Telegram Bot API. "
-            "Without this flag, dry-run only."
-        ),
+        help="Apply canonical profile through Telegram Bot API. Without this flag, dry-run only.",
     )
     return parser
 
