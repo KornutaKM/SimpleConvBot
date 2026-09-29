@@ -29,6 +29,7 @@ class Settings:
     redis_url: str = field(default="redis://localhost:6379/0", repr=False)
     temp_root: Path = Path("var/jobs")
     temp_ttl_seconds: int = 3600
+    retention_sweep_interval_seconds: int = 60
     workspace_max_bytes: int = 64 * 1024 * 1024
     update_rate_limit_per_minute: int = 60
     max_active_jobs_per_user: int = 3
@@ -49,6 +50,12 @@ class Settings:
             "TEMP_TTL_SECONDS",
             values.get("TEMP_TTL_SECONDS", "3600"),
         )
+        retention_sweep_interval_seconds = _parse_positive_int(
+            "RETENTION_SWEEP_INTERVAL_SECONDS",
+            values.get("RETENTION_SWEEP_INTERVAL_SECONDS", "60"),
+        )
+        if retention_sweep_interval_seconds > temp_ttl_seconds:
+            raise SettingsError("RETENTION_SWEEP_INTERVAL_SECONDS must not exceed TEMP_TTL_SECONDS")
         workspace_max_bytes = _parse_positive_int(
             "WORKSPACE_MAX_BYTES",
             values.get("WORKSPACE_MAX_BYTES", str(64 * 1024 * 1024)),
@@ -81,6 +88,7 @@ class Settings:
             redis_url=values.get("REDIS_URL", "redis://localhost:6379/0").strip(),
             temp_root=Path(values.get("TEMP_ROOT", "var/jobs")).expanduser(),
             temp_ttl_seconds=temp_ttl_seconds,
+            retention_sweep_interval_seconds=retention_sweep_interval_seconds,
             workspace_max_bytes=workspace_max_bytes,
             update_rate_limit_per_minute=update_rate_limit_per_minute,
             max_active_jobs_per_user=max_active_jobs_per_user,

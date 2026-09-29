@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from asyncio import Event, create_task
+from asyncio import Event, create_task, wait_for
 
 from aiogram import Bot
 from aiogram.types import BotCommand
@@ -11,7 +11,9 @@ from simpleconvbot.config import Settings, SettingsError
 from simpleconvbot.gateway import create_dispatcher
 from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobAdmissionPolicy
+from simpleconvbot.maintenance import RetentionSweepResult, RetentionSweepService
 from simpleconvbot.media_operations import MEDIA_OPERATIONS
+from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationRegistry
 from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.postgres import (
@@ -35,6 +37,14 @@ from simpleconvbot.telegram_execution import (
     TelegramOperationExecutor,
 )
 from simpleconvbot.telegram_sessions import TelegramCollectionGateway
+from simpleconvbot.telemetry import (
+    OperationOutcome,
+    TelemetryEvent,
+    TelemetryEventType,
+    emit_telemetry,
+)
+
+LOGGER = logging.getLogger(__name__)
 
 
 async def run_polling(settings: Settings | None = None) -> None:
@@ -76,9 +86,10 @@ async def run_polling(settings: Settings | None = None) -> None:
         locale_store=locale_store,
     )
     session_policy = SessionPolicy()
+    session_repository = PostgresCollectionSessionRepository(sessions, session_policy)
     collections = TelegramCollectionGateway(
         bot=bot,
-        repository=PostgresCollectionSessionRepository(sessions, session_policy),
+        repository=session_repository,
         focus=RedisSessionFocusStore(redis_client),
         jobs=jobs,
         storage=storage,
@@ -92,6 +103,12 @@ async def run_polling(settings: Settings | None = None) -> None:
         collections,
     )
     delivery = TelegramDelivery(bot, locale_store)
+    retention = RetentionSweepService(
+        workspace_reaper=storage,
+        session_reaper=session_repository,
+        metrics=MetricsRegistry(),
+        workspace_ttl_seconds=current.temp_ttl_seconds,
+    )
     worker = QueueWorker(
         queue,
         JobWorker(
@@ -103,12 +120,14 @@ async def run_polling(settings: Settings | None = None) -> None:
             failure_delivery=delivery,
         ),
     )
-    stop_worker = Event()
+    stop_runtime = Event()
 
     try:
         await create_schema(engine)
         await redis_client.ping()
         await queue.recover_inflight()
+        initial_retention = await retention.sweep()
+        _require_complete_initial_retention(initial_retention)
         await bot.set_my_commands(
             [
                 BotCommand(command="start", description="Home"),
@@ -124,12 +143,20 @@ async def run_polling(settings: Settings | None = None) -> None:
             ],
             language_code="ru",
         )
-        worker_task = create_task(_run_worker(worker, stop_worker))
+        worker_task = create_task(_run_worker(worker, stop_runtime))
+        retention_task = create_task(
+            _run_retention(
+                retention,
+                stop_runtime,
+                interval_seconds=current.retention_sweep_interval_seconds,
+            )
+        )
         try:
             await dispatcher.start_polling(bot)
         finally:
-            stop_worker.set()
+            stop_runtime.set()
             await worker_task
+            await retention_task
     finally:
         await bot.session.close()
         await redis_client.aclose()
@@ -139,3 +166,55 @@ async def run_polling(settings: Settings | None = None) -> None:
 async def _run_worker(worker: QueueWorker, stop: Event) -> None:
     while not stop.is_set():
         await worker.run_once(timeout_seconds=1)
+
+
+async def _run_retention(
+    retention: RetentionSweepService,
+    stop: Event,
+    *,
+    interval_seconds: float,
+) -> None:
+    if interval_seconds <= 0:
+        raise ValueError("interval_seconds must be greater than zero")
+
+    while not stop.is_set():
+        try:
+            await wait_for(stop.wait(), timeout=interval_seconds)
+            return
+        except TimeoutError:
+            pass
+
+        try:
+            result = await retention.sweep()
+        except Exception:
+            LOGGER.exception("periodic retention sweep failed")
+            emit_telemetry(
+                LOGGER,
+                TelemetryEvent.now(
+                    TelemetryEventType.CLEANUP,
+                    outcome=OperationOutcome.FAILURE,
+                    error_code="retention_sweep_failed",
+                    count=0,
+                ),
+            )
+            continue
+        _emit_retention_result(result)
+
+
+def _require_complete_initial_retention(result: RetentionSweepResult) -> None:
+    _emit_retention_result(result)
+    if result.workspaces_failed:
+        raise RuntimeError("initial retention sweep reported cleanup failures")
+
+
+def _emit_retention_result(result: RetentionSweepResult) -> None:
+    failed = result.workspaces_failed > 0
+    emit_telemetry(
+        LOGGER,
+        TelemetryEvent.now(
+            TelemetryEventType.CLEANUP,
+            outcome=OperationOutcome.FAILURE if failed else OperationOutcome.SUCCESS,
+            error_code="retention_partial_failure" if failed else None,
+            count=result.deleted_total,
+        ),
+    )

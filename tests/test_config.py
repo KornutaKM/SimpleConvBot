@@ -14,6 +14,7 @@ def test_settings_defaults() -> None:
     assert settings.redis_url == "redis://localhost:6379/0"
     assert settings.temp_root == Path("var/jobs")
     assert settings.temp_ttl_seconds == 3600
+    assert settings.retention_sweep_interval_seconds == 60
     assert settings.workspace_max_bytes == 64 * 1024 * 1024
     assert settings.update_rate_limit_per_minute == 60
     assert settings.max_active_jobs_per_user == 3
@@ -30,6 +31,7 @@ def test_settings_parse_values() -> None:
             "REDIS_URL": "redis://cache:6379/1",
             "TEMP_ROOT": "/tmp/simpleconvbot",
             "TEMP_TTL_SECONDS": "900",
+            "RETENTION_SWEEP_INTERVAL_SECONDS": "45",
             "WORKSPACE_MAX_BYTES": "12345",
             "UPDATE_RATE_LIMIT_PER_MINUTE": "12",
             "MAX_ACTIVE_JOBS_PER_USER": "2",
@@ -44,6 +46,7 @@ def test_settings_parse_values() -> None:
     assert settings.redis_url == "redis://cache:6379/1"
     assert settings.temp_root == Path("/tmp/simpleconvbot")
     assert settings.temp_ttl_seconds == 900
+    assert settings.retention_sweep_interval_seconds == 45
     assert settings.workspace_max_bytes == 12345
     assert settings.update_rate_limit_per_minute == 12
     assert settings.max_active_jobs_per_user == 2
@@ -77,6 +80,7 @@ def test_provider_postgres_urls_use_asyncpg_driver(raw: str, expected: str) -> N
     "name",
     [
         "TEMP_TTL_SECONDS",
+        "RETENTION_SWEEP_INTERVAL_SECONDS",
         "WORKSPACE_MAX_BYTES",
         "UPDATE_RATE_LIMIT_PER_MINUTE",
         "MAX_ACTIVE_JOBS_PER_USER",
@@ -120,3 +124,13 @@ def test_credentials_are_redacted_from_repr() -> None:
     assert "super-secret-token" not in rendered
     assert "db-secret" not in rendered
     assert "redis-secret" not in rendered
+
+
+def test_retention_sweep_interval_cannot_exceed_temp_ttl() -> None:
+    with pytest.raises(SettingsError, match="must not exceed TEMP_TTL_SECONDS"):
+        Settings.from_mapping(
+            {
+                "TEMP_TTL_SECONDS": "60",
+                "RETENTION_SWEEP_INTERVAL_SECONDS": "61",
+            }
+        )
