@@ -446,11 +446,18 @@ class TelegramCollectionGateway:
                 job,
                 started,
                 OperationOutcome.FAILURE,
+                len(plan.files),
                 code,
                 self._metrics,
             )
             raise UserFacingError(code) from exc
-        _emit_download(job, started, OperationOutcome.SUCCESS, metrics=self._metrics)
+        _emit_download(
+            job,
+            started,
+            OperationOutcome.SUCCESS,
+            len(plan.files),
+            metrics=self._metrics,
+        )
 
     async def _resolved_size(self, attachment: TelegramFile) -> int:
         if attachment.file_size is not None and attachment.file_size > 0:
@@ -559,6 +566,7 @@ def _emit_download(
     job: JobSnapshot,
     started: float,
     outcome: OperationOutcome,
+    file_count: int,
     error_code: str | None = None,
     metrics: OperationMetricRecorder | None = None,
 ) -> None:
@@ -572,6 +580,7 @@ def _emit_download(
             duration_ms=(monotonic() - started) * 1000,
             error_code=error_code,
             correlation_id=opaque_correlation_id(job.job_id),
+            count=file_count,
         ),
         metrics,
     )
