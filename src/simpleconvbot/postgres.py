@@ -251,6 +251,18 @@ class PostgresJobRepository:
                 raise JobNotFound(str(job_id))
             return _snapshot(row)
 
+    async def list_active_for_recovery(self) -> tuple[JobSnapshot, ...]:
+        active_values = tuple(state.value for state in ACTIVE_STATES)
+        async with self._sessions() as session:
+            rows = (
+                await session.scalars(
+                    select(JobRow)
+                    .where(JobRow.state.in_(active_values))
+                    .order_by(JobRow.created_at, JobRow.job_id)
+                )
+            ).all()
+            return tuple(_snapshot(row) for row in rows)
+
     async def transition(
         self,
         job_id: UUID,
