@@ -43,6 +43,7 @@ class TelemetryEventType(StrEnum):
     HEALTH = "health"
     CLEANUP = "cleanup"
     ADMIN_DIAGNOSTIC = "admin_diagnostic"
+    RECOVERY = "recovery"
 
 
 @dataclass(frozen=True, slots=True)
