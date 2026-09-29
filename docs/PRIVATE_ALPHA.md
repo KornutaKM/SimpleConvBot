@@ -18,6 +18,7 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] live operation stage telemetry feeds one shared aggregate metrics registry
 - [x] startup + periodic PostgreSQL/Redis health diagnostics are wired into runtime
 - [x] aggregate admin diagnostics are emitted without user/chat/file identity
+- [x] stable operation failure classes are aggregated by operation/stage/error_code
 - [x] runtime log formatter redacts secrets/provider URLs/file fields after traceback formatting
 - [x] bounded retention sweep for stale workspaces and expired collection sessions
 - [x] production runtime startup + periodic retention sweep wiring
@@ -98,11 +99,16 @@ Record aggregate operational evidence only:
 - stage
 - success/failure
 - stable error_code when failed
+- aggregate failure-class count by operation/stage/error_code
 - duration
 - cleanup outcome
 - expected vs actual user-visible result
 
 Do not record original filenames, Telegram file paths, user/chat IDs, provider URLs, secrets, or message contents.
+
+Before public launch, use the aggregate failure-class counters from
+`admin_diagnostic` to identify the dominant stable error codes observed during
+the private alpha. Do not infer failure classes from user content or filenames.
 
 ## Release boundary
 
