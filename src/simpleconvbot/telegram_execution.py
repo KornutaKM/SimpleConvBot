@@ -58,6 +58,7 @@ from simpleconvbot.telemetry import (
     TelemetryEvent,
     TelemetryEventType,
     emit_operation_telemetry,
+    emit_telemetry,
     opaque_correlation_id,
 )
 from simpleconvbot.ui import (
@@ -530,6 +531,16 @@ class TelegramExecutionGateway:
             await message.answer(error_text(exc.code.value, current_locale))
             return
         except UserFacingError as exc:
+            emit_telemetry(
+                LOGGER,
+                TelemetryEvent.now(
+                    TelemetryEventType.INPUT_REJECTED,
+                    operation_id=operation_id,
+                    outcome=OperationOutcome.FAILURE,
+                    error_code=exc.code,
+                    count=1,
+                ),
+            )
             await message.answer(error_text(exc.code, current_locale))
             return
         except Exception:
