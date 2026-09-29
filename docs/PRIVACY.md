@@ -43,10 +43,13 @@ can include:
 These records do **not** contain the uploaded file contents or original
 filenames.
 
-The current MVP database does not yet apply an automatic age-based deletion
-policy to completed job rows and Telegram update-receipt rows. They remain in
-the operational database until operator maintenance removes them. This is a
-known release-policy item and must not be described as one-hour retention.
+Completed/terminal job records and Telegram update-receipt records become
+eligible for automatic deletion after seven days. The same retention sweep that
+cleans temporary state performs this metadata cleanup. Active jobs are not
+deleted merely because they are old.
+
+This seven-day operational-metadata window is separate from the one-hour file
+workspace/session policy.
 
 ## Short-lived Redis data
 
