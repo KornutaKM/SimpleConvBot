@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -50,3 +52,15 @@ class AdminDiagnostics:
                 },
             },
         }
+
+
+def emit_admin_diagnostics(logger: logging.Logger, diagnostics: AdminDiagnostics) -> None:
+    payload = {"event": "admin_diagnostic", **diagnostics.to_payload()}
+    logger.info(
+        json.dumps(
+            payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
