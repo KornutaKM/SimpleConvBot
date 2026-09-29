@@ -231,7 +231,7 @@ class TelegramCollectionGateway:
                 ttl_seconds=_remaining_ttl(updated),
             )
         except Exception as exc:
-            if isinstance(exc, (SessionExpired, SessionClosed, SessionNotFound)):
+            if isinstance(exc, SessionExpired | SessionClosed | SessionNotFound):
                 await self._focus.clear(
                     user_id=user.id,
                     chat_id=message.chat.id,
