@@ -22,7 +22,7 @@ from simpleconvbot.postgres import (
     make_engine,
     make_session_factory,
 )
-from simpleconvbot.redis_queue import RedisJobQueue
+from simpleconvbot.redis_locale import RedisUserLocaleStore\nfrom simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
@@ -66,11 +66,13 @@ async def run_polling(settings: Settings | None = None) -> None:
         redis_client,
         limit=current.update_rate_limit_per_minute,
     )
+    locale_store = RedisUserLocaleStore(redis_client)
     execution = TelegramExecutionGateway(
         bot=bot,
         jobs=jobs,
         storage=storage,
         rate_limiter=rate_limiter,
+        locale_store=locale_store,
     )
     session_policy = SessionPolicy()
     collections = TelegramCollectionGateway(
@@ -80,6 +82,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         jobs=jobs,
         storage=storage,
         rate_limiter=rate_limiter,
+        locale_store=locale_store,
         policy=session_policy,
     )
     dispatcher = create_dispatcher(
@@ -87,7 +90,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         execution,
         collections,
     )
-    delivery = TelegramDelivery(bot)
+    delivery = TelegramDelivery(bot, locale_store)
     worker = QueueWorker(
         queue,
         JobWorker(
@@ -107,10 +110,18 @@ async def run_polling(settings: Settings | None = None) -> None:
         await queue.recover_inflight()
         await bot.set_my_commands(
             [
+                BotCommand(command="start", description="Home"),
+                BotCommand(command="tools", description="All tools"),
+                BotCommand(command="settings", description="Settings"),
+            ]
+        )
+        await bot.set_my_commands(
+            [
                 BotCommand(command="start", description="Главный экран"),
                 BotCommand(command="tools", description="Все инструменты"),
                 BotCommand(command="settings", description="Настройки"),
-            ]
+            ],
+            language_code="ru",
         )
         worker_task = create_task(_run_worker(worker, stop_worker))
         try:
