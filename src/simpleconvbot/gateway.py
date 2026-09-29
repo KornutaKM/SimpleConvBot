@@ -15,6 +15,7 @@ from aiogram.types import (
 )
 
 from simpleconvbot.ports import UpdateReceiptStore
+from simpleconvbot.sessions import SessionKind
 from simpleconvbot.telegram_execution import (
     TelegramExecutionGateway,
     audio_operation,
@@ -22,6 +23,7 @@ from simpleconvbot.telegram_execution import (
     pdf_operation,
     video_operation,
 )
+from simpleconvbot.telegram_sessions import TelegramCollectionGateway
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
     AUDIO_CATEGORY_TEXT,
@@ -104,7 +106,24 @@ async def _execute_callback(
     await execution.start_operation(source, operation_id)
 
 
-def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
+async def _start_collection_callback(
+    callback: CallbackQuery,
+    collections: TelegramCollectionGateway | None,
+    kind: SessionKind,
+) -> None:
+    message = callback.message
+    source = message.reply_to_message if isinstance(message, Message) else None
+    if collections is None or not isinstance(source, Message):
+        await callback.answer("Файл больше недоступен. Отправьте его ещё раз.", show_alert=True)
+        return
+    await callback.answer()
+    await collections.start(source, kind)
+
+
+def create_router(
+    execution: TelegramExecutionGateway | None = None,
+    collections: TelegramCollectionGateway | None = None,
+) -> Router:
     router = Router(name="simpleconvbot")
 
     @router.message(CommandStart())
@@ -200,11 +219,27 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
             category_back_keyboard(),
         )
 
+    @router.callback_query(F.data == "ui:image:pdf")
+    async def start_images_to_pdf(callback: CallbackQuery) -> None:
+        await _start_collection_callback(
+            callback,
+            collections,
+            SessionKind.IMAGES_TO_PDF,
+        )
+
     @router.callback_query(
         F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp", "ui:image:compress"})
     )
     async def execute_image_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, image_operation(callback.data))
+
+    @router.callback_query(F.data == "ui:pdf:merge")
+    async def start_pdf_merge(callback: CallbackQuery) -> None:
+        await _start_collection_callback(
+            callback,
+            collections,
+            SessionKind.PDF_MERGE,
+        )
 
     @router.callback_query(F.data == "ui:pdf:png")
     async def execute_pdf_action(callback: CallbackQuery) -> None:
@@ -217,6 +252,13 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
     @router.callback_query(F.data.in_(set(VIDEO_ACTION_TITLES)))
     async def execute_video_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, video_operation(callback.data))
+
+    @router.callback_query(F.data.startswith("sess:"))
+    async def collection_callback(callback: CallbackQuery) -> None:
+        if collections is None:
+            await callback.answer("Сессия временно недоступна.", show_alert=True)
+            return
+        await collections.handle_callback(callback)
 
     @router.callback_query(F.data.startswith("ui:image:"))
     async def image_action(callback: CallbackQuery) -> None:
@@ -252,6 +294,8 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
 
     @router.message(F.photo)
     async def photo_received(message: Message) -> None:
+        if collections is not None and await collections.consume(message):
+            return
         photos = message.photo
         if not photos:
             return
@@ -264,6 +308,8 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
 
     @router.message(F.audio)
     async def audio_received(message: Message) -> None:
+        if collections is not None and await collections.consume(message):
+            return
         audio = message.audio
         if audio is None:
             return
@@ -275,6 +321,8 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
 
     @router.message(F.video)
     async def video_received(message: Message) -> None:
+        if collections is not None and await collections.consume(message):
+            return
         video = message.video
         if video is None:
             return
@@ -286,6 +334,8 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
 
     @router.message(F.document)
     async def document_received(message: Message) -> None:
+        if collections is not None and await collections.consume(message):
+            return
         document = message.document
         if document is None:
             return
@@ -343,8 +393,9 @@ def create_router(execution: TelegramExecutionGateway | None = None) -> Router:
 def create_dispatcher(
     receipts: UpdateReceiptStore,
     execution: TelegramExecutionGateway | None = None,
+    collections: TelegramCollectionGateway | None = None,
 ) -> Dispatcher:
     dispatcher = Dispatcher()
     dispatcher.update.outer_middleware(UpdateDeduplicationMiddleware(receipts))
-    dispatcher.include_router(create_router(execution))
+    dispatcher.include_router(create_router(execution, collections))
     return dispatcher
