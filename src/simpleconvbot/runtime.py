@@ -22,7 +22,8 @@ from simpleconvbot.postgres import (
     make_engine,
     make_session_factory,
 )
-from simpleconvbot.redis_locale import RedisUserLocaleStore\nfrom simpleconvbot.redis_queue import RedisJobQueue
+from simpleconvbot.redis_locale import RedisUserLocaleStore
+from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
