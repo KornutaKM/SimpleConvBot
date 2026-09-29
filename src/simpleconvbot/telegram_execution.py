@@ -72,6 +72,7 @@ INPUT_NAME = "input"
 TELEGRAM_MAX_RENDERED_PDF_PAGES = 20
 TELEGRAM_MAX_SPLIT_PDF_PAGES = 20
 TELEGRAM_MAX_COLLECTION_FILES = 20
+TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES = 20 * 1024 * 1024
 _COLLECTION_INPUT = re.compile(r"^input-(?P<position>[0-9]{4})$")
 
 
@@ -79,6 +80,12 @@ class UserFacingError(RuntimeError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+def enforce_telegram_cloud_download_limit(file_size: int | None) -> None:
+    """Fail before provider I/O when the default Telegram Bot API cannot fetch a file."""
+    if file_size is not None and file_size > TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES:
+        raise UserFacingError(UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -546,10 +553,12 @@ class TelegramExecutionGateway:
     async def _download(self, job: JobSnapshot, attachment: TelegramFile) -> None:
         started = monotonic()
         try:
+            enforce_telegram_cloud_download_limit(attachment.file_size)
             if attachment.file_size is not None:
                 await self._storage.enforce_quota(job.job_id, additional_bytes=attachment.file_size)
             destination = await self._storage.workspace_file(job.job_id, INPUT_NAME)
             remote = await self._bot.get_file(attachment.file_id)
+            enforce_telegram_cloud_download_limit(remote.file_size)
             await self._bot.download(remote, destination=destination)
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
