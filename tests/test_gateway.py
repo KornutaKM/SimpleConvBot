@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from aiogram.types import TelegramObject, Update
 
-from simpleconvbot.gateway import UpdateDeduplicationMiddleware
+from simpleconvbot.gateway import UpdateDeduplicationMiddleware, create_router
 
 
 class MemoryReceipts:
@@ -59,3 +59,11 @@ def test_duplicate_update_is_stopped_before_handler(
     assert "update_id" not in serialized
     assert "user_id" not in serialized
     assert "chat_id" not in serialized
+
+
+def test_router_registers_help_callback_handler() -> None:
+    router = create_router()
+
+    callback_names = {handler.callback.__name__ for handler in router.callback_query.handlers}
+
+    assert "help" in callback_names

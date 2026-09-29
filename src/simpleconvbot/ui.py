@@ -12,6 +12,7 @@ HOME_CALLBACK = "ui:home"
 SEND_FILE_CALLBACK = "ui:send-file"
 TOOLS_CALLBACK = "ui:tools"
 SETTINGS_CALLBACK = "ui:settings"
+HELP_CALLBACK = "ui:help"
 
 WELCOME_TEXT = (
     "⚡ <b>SimpleConv</b>\n\n"
@@ -145,6 +146,50 @@ def settings_text(locale: Locale) -> str:
     )
 
 
+def help_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        (
+            "❓ <b>Помощь</b>\n\n"
+            "<b>Как пользоваться</b>\n"
+            "1. Нажмите скрепку Telegram и отправьте файл, фото, видео или аудио.\n"
+            "2. Выберите действие.\n"
+            "3. Дождитесь готового результата.\n\n"
+            "<b>Что умеет SimpleConv</b>\n"
+            "🖼 Изображения: JPG, PNG, WebP, сжатие, изображения → PDF.\n"
+            "📄 PDF: JPG, PNG, разделение, объединение, информация о PDF.\n"
+            "🎵 Аудио: MP3, M4A, WAV.\n"
+            "🎬 Видео: MP3, без звука, GIF, сжатие.\n\n"
+            "<b>Несколько файлов</b>\n"
+            "Для «Изображения → PDF» и «Объединить PDF» можно добавить до 20 файлов "
+            "общим размером до 40 МБ, затем нажать «Готово».\n\n"
+            "<b>Хранение и ошибки</b>\n"
+            "Временные данные автоматически удаляются через 1 час. "
+            "Если формат не поддерживается, файл слишком большой или повреждён, "
+            "бот покажет понятное сообщение и не будет продолжать небезопасную обработку."
+        ),
+        (
+            "❓ <b>Help</b>\n\n"
+            "<b>How to use SimpleConv</b>\n"
+            "1. Tap the Telegram attachment button and send a file, photo, video, or audio.\n"
+            "2. Choose an action.\n"
+            "3. Wait for the converted result.\n\n"
+            "<b>What SimpleConv can do</b>\n"
+            "🖼 Images: JPG, PNG, WebP, compression, images → PDF.\n"
+            "📄 PDF: JPG, PNG, split, merge, PDF information.\n"
+            "🎵 Audio: MP3, M4A, WAV.\n"
+            "🎬 Video: MP3, mute, GIF, compression.\n\n"
+            "<b>Multiple files</b>\n"
+            "For Images → PDF and Merge PDFs, add up to 20 files with a total size "
+            "of up to 40 MB, then tap “Done”.\n\n"
+            "<b>Storage and errors</b>\n"
+            "Temporary data is deleted automatically after 1 hour. "
+            "If a format is unsupported, a file is too large, or a file is damaged, "
+            "the bot shows a clear error instead of continuing unsafe processing."
+        ),
+    )
+
+
 def category_text(callback_data: str, locale: Locale) -> str | None:
     values = {
         "ui:cat:image": _pick(
@@ -207,9 +252,15 @@ def home_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                     TOOLS_CALLBACK,
                 ),
                 _button(
+                    _pick(locale, "❓ Помощь", "❓ Help"),
+                    HELP_CALLBACK,
+                ),
+            ],
+            [
+                _button(
                     _pick(locale, "⚙️ Настройки", "⚙️ Settings"),
                     SETTINGS_CALLBACK,
-                ),
+                )
             ],
         ]
     )
@@ -251,6 +302,14 @@ def settings_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                     "ui:setting:retention",
                 )
             ],
+            [_button(_pick(locale, "← Назад", "← Back"), HOME_CALLBACK)],
+        ]
+    )
+
+
+def help_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [_button(_pick(locale, "← Назад", "← Back"), HOME_CALLBACK)],
         ]
     )
