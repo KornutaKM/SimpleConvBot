@@ -32,6 +32,8 @@ class Settings:
     metadata_ttl_seconds: int = 7 * 24 * 60 * 60
     retention_sweep_interval_seconds: int = 60
     diagnostics_interval_seconds: int = 300
+    runtime_lease_ttl_seconds: int = 30
+    runtime_lease_acquire_timeout_seconds: int = 45
     workspace_max_bytes: int = 64 * 1024 * 1024
     update_rate_limit_per_minute: int = 60
     max_active_jobs_per_user: int = 3
@@ -70,6 +72,18 @@ class Settings:
             "DIAGNOSTICS_INTERVAL_SECONDS",
             values.get("DIAGNOSTICS_INTERVAL_SECONDS", "300"),
         )
+        runtime_lease_ttl_seconds = _parse_positive_int(
+            "RUNTIME_LEASE_TTL_SECONDS",
+            values.get("RUNTIME_LEASE_TTL_SECONDS", "30"),
+        )
+        runtime_lease_acquire_timeout_seconds = _parse_positive_int(
+            "RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS",
+            values.get("RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS", "45"),
+        )
+        if runtime_lease_acquire_timeout_seconds <= runtime_lease_ttl_seconds:
+            raise SettingsError(
+                "RUNTIME_LEASE_ACQUIRE_TIMEOUT_SECONDS must exceed RUNTIME_LEASE_TTL_SECONDS"
+            )
         workspace_max_bytes = _parse_positive_int(
             "WORKSPACE_MAX_BYTES",
             values.get("WORKSPACE_MAX_BYTES", str(64 * 1024 * 1024)),
@@ -105,6 +119,8 @@ class Settings:
             metadata_ttl_seconds=metadata_ttl_seconds,
             retention_sweep_interval_seconds=retention_sweep_interval_seconds,
             diagnostics_interval_seconds=diagnostics_interval_seconds,
+            runtime_lease_ttl_seconds=runtime_lease_ttl_seconds,
+            runtime_lease_acquire_timeout_seconds=runtime_lease_acquire_timeout_seconds,
             workspace_max_bytes=workspace_max_bytes,
             update_rate_limit_per_minute=update_rate_limit_per_minute,
             max_active_jobs_per_user=max_active_jobs_per_user,
