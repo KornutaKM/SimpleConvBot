@@ -18,6 +18,7 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] live operation stage telemetry feeds one shared aggregate metrics registry
 - [x] startup + periodic PostgreSQL/Redis health diagnostics are wired into runtime
 - [x] aggregate admin diagnostics are emitted without user/chat/file identity
+- [x] runtime log formatter redacts secrets/provider URLs/file fields after traceback formatting
 - [x] bounded retention sweep for stale workspaces and expired collection sessions
 - [x] production runtime startup + periodic retention sweep wiring
 - [x] real Telegram execution wiring for image/PDF/media operations
