@@ -21,6 +21,7 @@ from simpleconvbot.ui import (
     image_document_card,
     pdf_actions_keyboard,
     pdf_card,
+    pdf_info_text,
     send_file_hint,
     settings_text,
     tools_keyboard,
@@ -133,3 +134,15 @@ def test_russian_remains_default_for_existing_clients() -> None:
 def test_send_file_hint_is_explicit_about_telegram_attachment_control() -> None:
     assert "скрепку Telegram" in send_file_hint(Locale.RU)
     assert "file, photo, video, or audio" in send_file_hint(Locale.EN)
+
+
+def test_pdf_info_text_is_localized_and_uses_existing_size_formatting() -> None:
+    ru = pdf_info_text(3, 1536, "1.7", Locale.RU)
+    en = pdf_info_text(3, 1536, "1.7", Locale.EN)
+
+    assert "Страниц: 3" in ru
+    assert "Размер: 1.5 KB" in ru
+    assert "Версия: 1.7" in ru
+    assert "Pages: 3" in en
+    assert "Size: 1.5 KB" in en
+    assert "Version: 1.7" in en
