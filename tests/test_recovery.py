@@ -117,7 +117,6 @@ async def _startup_recovery_fails_interrupted_jobs_and_requeues_queued_jobs() ->
     assert {code for _, code in delivery.calls} == {UserErrorCode.RESTART_INTERRUPTED.value}
 
 
-
 def test_startup_recovery_emits_privacy_safe_summary(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -147,7 +146,6 @@ def test_startup_recovery_emits_privacy_safe_summary(
     serialized = json.dumps(summaries[0], sort_keys=True)
     for forbidden in ("job_id", "user_id", "chat_id", "source_message_id"):
         assert forbidden not in serialized
-
 
 
 def test_cleanup_failure_keeps_interrupted_job_active_and_aborts_recovery() -> None:
