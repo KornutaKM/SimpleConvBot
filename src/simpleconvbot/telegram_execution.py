@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from asyncio import to_thread
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,8 @@ from simpleconvbot.telemetry import (
 LOGGER = logging.getLogger(__name__)
 INPUT_NAME = "input"
 TELEGRAM_MAX_RENDERED_PDF_PAGES = 20
+TELEGRAM_MAX_COLLECTION_FILES = 20
+_COLLECTION_INPUT = re.compile(r"^input-(?P<position>[0-9]{4})$")
 
 
 class UserFacingError(RuntimeError):
@@ -151,32 +154,67 @@ class TelegramPdfExecutor(OperationExecutor):
         workspace: Path,
     ) -> ExecutionResult:
         started = monotonic()
-        if operation.worker_family != "pdf" or operation.operation_id != "pdf.to_images":
+        if operation.worker_family != "pdf":
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
 
         try:
-            source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
-            info = await to_thread(self._engine.inspect, source)
-            if info.page_count > TELEGRAM_MAX_RENDERED_PDF_PAGES:
-                raise PdfEngineError(
-                    PdfErrorCode.PAGE_LIMIT_EXCEEDED,
-                    "Telegram PDF rendering is limited to 20 pages per operation",
-                )
-            output_dir = workspace / "pages"
-            rendered = await to_thread(self._engine.render_pages, source, output_dir)
-            await self._storage.enforce_quota(job.job_id)
-            refs = tuple(str(path) for path in rendered.output_paths)
-            if not refs:
+            if operation.operation_id == "pdf.to_images":
+                result = await self._render_single_pdf(job, workspace)
+            elif operation.operation_id == "pdf.from_images":
+                result = await self._images_to_pdf(job, workspace)
+            elif operation.operation_id == "pdf.merge":
+                result = await self._merge_pdfs(job, workspace)
+            else:
                 raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+            await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
             _emit_failure(job, started, exc)
             raise
 
         _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started)
+        return result
+
+    async def _render_single_pdf(
+        self,
+        job: JobSnapshot,
+        workspace: Path,
+    ) -> ExecutionResult:
+        source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
+        info = await to_thread(self._engine.inspect, source)
+        if info.page_count > TELEGRAM_MAX_RENDERED_PDF_PAGES:
+            raise PdfEngineError(
+                PdfErrorCode.PAGE_LIMIT_EXCEEDED,
+                "Telegram PDF rendering exceeds the page fan-out limit",
+            )
+        output_dir = workspace / "pages"
+        rendered = await to_thread(self._engine.render_pages, source, output_dir)
+        refs = tuple(str(path) for path in rendered.output_paths)
+        if not refs:
+            raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
         return ExecutionResult(
             output_ref=refs[0],
             additional_output_refs=refs[1:],
         )
+
+    async def _images_to_pdf(
+        self,
+        job: JobSnapshot,
+        workspace: Path,
+    ) -> ExecutionResult:
+        inputs = _ordered_collection_inputs(workspace)
+        destination = await self._storage.workspace_file(job.job_id, "result.pdf")
+        await to_thread(self._engine.images_to_pdf, inputs, destination)
+        return ExecutionResult(output_ref=str(destination))
+
+    async def _merge_pdfs(
+        self,
+        job: JobSnapshot,
+        workspace: Path,
+    ) -> ExecutionResult:
+        inputs = _ordered_collection_inputs(workspace)
+        destination = await self._storage.workspace_file(job.job_id, "result.pdf")
+        await to_thread(self._engine.merge, inputs, destination)
+        return ExecutionResult(output_ref=str(destination))
 
 
 class TelegramMediaExecutor(OperationExecutor):
@@ -436,3 +474,24 @@ def _emit(
 def _error_code(exc: Exception) -> str:
     code = getattr(exc, "code", UserErrorCode.INTERNAL_ERROR.value)
     return code.value if hasattr(code, "value") else str(code)
+
+
+def _ordered_collection_inputs(workspace: Path) -> tuple[Path, ...]:
+    indexed: list[tuple[int, Path]] = []
+    for path in workspace.iterdir():
+        match = _COLLECTION_INPUT.fullmatch(path.name)
+        if match is None:
+            continue
+        if path.is_symlink() or not path.is_file():
+            raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+        indexed.append((int(match.group("position")), path))
+
+    indexed.sort(key=lambda item: item[0])
+    if not indexed or len(indexed) > TELEGRAM_MAX_COLLECTION_FILES:
+        raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+
+    expected = list(range(1, len(indexed) + 1))
+    actual = [position for position, _ in indexed]
+    if actual != expected:
+        raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+    return tuple(path for _, path in indexed)
