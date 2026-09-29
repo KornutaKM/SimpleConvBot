@@ -30,6 +30,10 @@ This checklist is the evidence gate for ALPHA-001. It distinguishes repository-p
 - [x] known oversized Telegram inputs fail before provider download with a stable RU/EN size-limit error
 - [x] local Docker Compose alpha profile runs app + PostgreSQL + Redis with health-gated dependencies and bounded app runtime settings
 
+## Enabled private-alpha surface
+
+The Telegram menus expose only operations that are wired end to end. Future and incomplete tools stay hidden until their implementation is ready for alpha evidence. This prevents prototype callbacks from being presented as usable features.
+
 ## Telegram end-to-end evidence still required
 
 Do not mark these complete from engine/unit tests alone.
