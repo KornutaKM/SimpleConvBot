@@ -35,8 +35,8 @@ from simpleconvbot.jobs import (
     JobNotFound,
     JobSnapshot,
     JobState,
-    TERMINAL_STATES,
     ensure_transition,
+    TERMINAL_STATES,
 )
 from simpleconvbot.sessions import (
     CollectionSessionSnapshot,
