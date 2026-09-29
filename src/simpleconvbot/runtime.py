@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import logging
 from asyncio import Event, create_task, wait_for
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
+from time import monotonic
 
 from aiogram import Bot
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from simpleconvbot.config import Settings, SettingsError
+from simpleconvbot.diagnostics import AdminDiagnostics, emit_admin_diagnostics
 from simpleconvbot.gateway import create_dispatcher
+from simpleconvbot.health import HealthReport, collect_health
 from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobAdmissionPolicy
 from simpleconvbot.maintenance import RetentionSweepResult, RetentionSweepService
@@ -55,6 +61,8 @@ async def run_polling(settings: Settings | None = None) -> None:
         raise SettingsError("TELEGRAM_BOT_TOKEN is required for bot runtime")
 
     logging.basicConfig(level=current.log_level)
+    runtime_started = monotonic()
+    runtime_version = _package_version()
     engine = make_engine(current.database_url)
     sessions = make_session_factory(engine)
     redis_client = Redis.from_url(current.redis_url, decode_responses=True)
@@ -65,6 +73,7 @@ async def run_polling(settings: Settings | None = None) -> None:
     )
     registry = OperationRegistry((*IMAGE_OPERATIONS, *PDF_OPERATIONS, *MEDIA_OPERATIONS))
     queue = RedisJobQueue(redis_client)
+    metrics = MetricsRegistry()
     repository = PostgresJobRepository(
         sessions,
         JobAdmissionPolicy(
@@ -72,7 +81,7 @@ async def run_polling(settings: Settings | None = None) -> None:
             max_active_global=current.max_active_jobs_global,
         ),
     )
-    jobs = JobService(repository, queue, registry)
+    jobs = JobService(repository, queue, registry, metrics=metrics)
     rate_limiter = RedisUpdateRateLimiter(
         redis_client,
         limit=current.update_rate_limit_per_minute,
@@ -84,6 +93,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         storage=storage,
         rate_limiter=rate_limiter,
         locale_store=locale_store,
+        metrics=metrics,
     )
     session_policy = SessionPolicy()
     session_repository = PostgresCollectionSessionRepository(sessions, session_policy)
@@ -95,6 +105,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         storage=storage,
         rate_limiter=rate_limiter,
         locale_store=locale_store,
+        metrics=metrics,
         policy=session_policy,
     )
     dispatcher = create_dispatcher(
@@ -102,11 +113,11 @@ async def run_polling(settings: Settings | None = None) -> None:
         execution,
         collections,
     )
-    delivery = TelegramDelivery(bot, locale_store)
+    delivery = TelegramDelivery(bot, locale_store, metrics)
     retention = RetentionSweepService(
         workspace_reaper=storage,
         session_reaper=session_repository,
-        metrics=MetricsRegistry(),
+        metrics=metrics,
         workspace_ttl_seconds=current.temp_ttl_seconds,
     )
     worker = QueueWorker(
@@ -115,9 +126,10 @@ async def run_polling(settings: Settings | None = None) -> None:
             repository,
             registry,
             storage,
-            TelegramOperationExecutor(storage),
+            TelegramOperationExecutor(storage, metrics=metrics),
             delivery,
             failure_delivery=delivery,
+            metrics=metrics,
         ),
     )
     stop_runtime = Event()
@@ -128,6 +140,15 @@ async def run_polling(settings: Settings | None = None) -> None:
         await queue.recover_inflight()
         initial_retention = await retention.sweep()
         _require_complete_initial_retention(initial_retention)
+        initial_health = await collect_health(engine, redis_client)
+        _emit_diagnostics_snapshot(
+            initial_health,
+            metrics,
+            version_name=runtime_version,
+            environment=current.environment.value,
+            runtime_started=runtime_started,
+        )
+        _require_ready_health(initial_health)
         await bot.set_my_commands(
             [
                 BotCommand(command="start", description="Home"),
@@ -151,12 +172,25 @@ async def run_polling(settings: Settings | None = None) -> None:
                 interval_seconds=current.retention_sweep_interval_seconds,
             )
         )
+        diagnostics_task = create_task(
+            _run_diagnostics(
+                engine,
+                redis_client,
+                metrics,
+                stop_runtime,
+                version_name=runtime_version,
+                environment=current.environment.value,
+                runtime_started=runtime_started,
+                interval_seconds=current.diagnostics_interval_seconds,
+            )
+        )
         try:
             await dispatcher.start_polling(bot)
         finally:
             stop_runtime.set()
             await worker_task
             await retention_task
+            await diagnostics_task
     finally:
         await bot.session.close()
         await redis_client.aclose()
@@ -199,6 +233,73 @@ async def _run_retention(
             )
             continue
         _emit_retention_result(result)
+
+
+async def _run_diagnostics(
+    engine: AsyncEngine,
+    redis_client: Redis,
+    metrics: MetricsRegistry,
+    stop: Event,
+    *,
+    version_name: str,
+    environment: str,
+    runtime_started: float,
+    interval_seconds: float,
+) -> None:
+    if interval_seconds <= 0:
+        raise ValueError("interval_seconds must be greater than zero")
+
+    while not stop.is_set():
+        try:
+            await wait_for(stop.wait(), timeout=interval_seconds)
+            return
+        except TimeoutError:
+            pass
+
+        try:
+            health = await collect_health(engine, redis_client)
+            _emit_diagnostics_snapshot(
+                health,
+                metrics,
+                version_name=version_name,
+                environment=environment,
+                runtime_started=runtime_started,
+            )
+        except Exception:
+            LOGGER.exception("periodic operational diagnostics failed")
+
+
+def _emit_diagnostics_snapshot(
+    health: HealthReport,
+    metrics: MetricsRegistry,
+    *,
+    version_name: str,
+    environment: str,
+    runtime_started: float,
+) -> None:
+    emit_admin_diagnostics(
+        LOGGER,
+        AdminDiagnostics(
+            version=version_name,
+            environment=environment,
+            generated_at=datetime.now(UTC),
+            uptime_seconds=max(0.0, monotonic() - runtime_started),
+            health=health,
+            metrics=metrics.snapshot(),
+        ),
+    )
+
+
+def _require_ready_health(health: HealthReport) -> None:
+    if not health.ready:
+        raise RuntimeError("runtime dependency health check failed")
+
+
+def _package_version() -> str:
+    try:
+        return version("simpleconvbot")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 def _require_complete_initial_retention(result: RetentionSweepResult) -> None:
