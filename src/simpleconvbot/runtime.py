@@ -17,6 +17,7 @@ from simpleconvbot.gateway import create_dispatcher
 from simpleconvbot.health import HealthReport, collect_health
 from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobAdmissionPolicy
+from simpleconvbot.logging_security import configure_secure_logging
 from simpleconvbot.maintenance import RetentionSweepResult, RetentionSweepService
 from simpleconvbot.media_operations import MEDIA_OPERATIONS
 from simpleconvbot.metrics import MetricsRegistry
@@ -60,7 +61,14 @@ async def run_polling(settings: Settings | None = None) -> None:
     if token is None:
         raise SettingsError("TELEGRAM_BOT_TOKEN is required for bot runtime")
 
-    logging.basicConfig(level=current.log_level)
+    configure_secure_logging(
+        current.log_level,
+        sensitive_values=(
+            token,
+            current.database_url,
+            current.redis_url,
+        ),
+    )
     runtime_started = monotonic()
     runtime_version = _package_version()
     engine = make_engine(current.database_url)
