@@ -273,7 +273,6 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 
 
 def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
-    titles = PDF_ACTION_TITLES if locale is Locale.RU else _PDF_ACTION_EN
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_button("🖼 → JPG", "ui:pdf:jpg"), _button("🖼 → PNG", "ui:pdf:png")],
