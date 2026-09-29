@@ -11,8 +11,15 @@ from aiogram.enums import ParseMode
 from aiogram.types import CallbackQuery, Message
 
 from simpleconvbot.jobs import JobAdmissionRejected, JobSnapshot, JobState
-from simpleconvbot.localization import Locale, UserErrorCode, error_text, operation_title
+from simpleconvbot.localization import (
+    Locale,
+    UserErrorCode,
+    error_text,
+    operation_title,
+    resolve_locale,
+)
 from simpleconvbot.postgres import PostgresCollectionSessionRepository
+from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
 from simpleconvbot.services import JobService, StartJobRequest
@@ -41,7 +48,15 @@ from simpleconvbot.telemetry import (
     emit_telemetry,
     opaque_correlation_id,
 )
-from simpleconvbot.ui import collection_keyboard, collection_status_text
+from simpleconvbot.ui import (
+    collection_accepted_text,
+    collection_duplicate_text,
+    collection_keyboard,
+    collection_status_text,
+    session_add_hint,
+    session_cancelled_text,
+    session_unavailable_text,
+)
 
 LOGGER = logging.getLogger(__name__)
 _SESSION_CALLBACK = re.compile(
@@ -61,6 +76,7 @@ class TelegramCollectionGateway:
         jobs: JobService,
         storage: LocalTemporaryStorage,
         rate_limiter: RedisUpdateRateLimiter,
+        locale_store: RedisUserLocaleStore | None = None,
         policy: SessionPolicy | None = None,
     ) -> None:
         self._bot = bot
@@ -69,18 +85,31 @@ class TelegramCollectionGateway:
         self._jobs = jobs
         self._storage = storage
         self._rate_limiter = rate_limiter
+        self._locale_store = locale_store
         self._policy = policy or SessionPolicy()
 
-    async def start(self, message: Message, kind: SessionKind) -> None:
+    async def start(
+        self,
+        message: Message,
+        kind: SessionKind,
+        *,
+        locale: Locale | None = None,
+    ) -> None:
         user = message.from_user
+        current_locale = locale or resolve_locale(user.language_code if user is not None else None)
         if user is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
+        await _remember_locale(self._locale_store, user.id, current_locale)
         if not await self._rate_limiter.allow(user.id):
-            await message.answer(error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, Locale.RU))
+            await message.answer(
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale)
+            )
             return
         if not _message_matches_kind(message, kind):
-            await message.answer(error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, Locale.RU))
+            await message.answer(
+                error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale)
+            )
             return
 
         active = await self._focus.get(user_id=user.id, chat_id=message.chat.id)
@@ -103,8 +132,14 @@ class TelegramCollectionGateway:
                     and datetime.now(UTC) < snapshot.expires_at
                 ):
                     await message.answer(
-                        error_text(UserErrorCode.SESSION_ALREADY_ACTIVE.value, Locale.RU),
-                        reply_markup=collection_keyboard(snapshot.session_id),
+                        error_text(
+                            UserErrorCode.SESSION_ALREADY_ACTIVE.value,
+                            current_locale,
+                        ),
+                        reply_markup=collection_keyboard(
+                            snapshot.session_id,
+                            current_locale,
+                        ),
                     )
                     return
                 await self._focus.clear(
@@ -115,7 +150,7 @@ class TelegramCollectionGateway:
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
 
         created_session_id: UUID | None = None
@@ -150,12 +185,12 @@ class TelegramCollectionGateway:
                     user_id=user.id,
                     chat_id=message.chat.id,
                 )
-            await message.answer(error_text(_session_error_code(exc), Locale.RU))
+            await message.answer(error_text(_session_error_code(exc), current_locale))
             return
 
         await message.answer(
-            collection_status_text(snapshot),
-            reply_markup=collection_keyboard(snapshot.session_id),
+            collection_status_text(snapshot, current_locale),
+            reply_markup=collection_keyboard(snapshot.session_id, current_locale),
             parse_mode=ParseMode.HTML,
         )
 
@@ -163,6 +198,8 @@ class TelegramCollectionGateway:
         user = message.from_user
         if user is None:
             return False
+        current_locale = resolve_locale(user.language_code)
+        await _remember_locale(self._locale_store, user.id, current_locale)
 
         session_id = await self._focus.get(user_id=user.id, chat_id=message.chat.id)
         if session_id is None:
@@ -180,7 +217,7 @@ class TelegramCollectionGateway:
                 chat_id=message.chat.id,
                 expected_session_id=session_id,
             )
-            await message.answer(error_text(_session_error_code(exc), Locale.RU))
+            await message.answer(error_text(_session_error_code(exc), current_locale))
             return True
 
         if (
@@ -197,19 +234,23 @@ class TelegramCollectionGateway:
                 if datetime.now(UTC) >= snapshot.expires_at
                 else UserErrorCode.SESSION_CLOSED.value
             )
-            await message.answer(error_text(code, Locale.RU))
+            await message.answer(error_text(code, current_locale))
             return True
 
         if not await self._rate_limiter.allow(user.id):
-            await message.answer(error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, Locale.RU))
+            await message.answer(
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale)
+            )
             return True
         if not _message_matches_kind(message, snapshot.kind):
-            await message.answer(error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, Locale.RU))
+            await message.answer(
+                error_text(UserErrorCode.SESSION_WRONG_FILE_TYPE.value, current_locale)
+            )
             return True
 
         attachment = message_file(message)
         if attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return True
 
         try:
@@ -237,12 +278,12 @@ class TelegramCollectionGateway:
                     chat_id=message.chat.id,
                     expected_session_id=session_id,
                 )
-            await message.answer(error_text(_session_error_code(exc), Locale.RU))
+            await message.answer(error_text(_session_error_code(exc), current_locale))
             return True
 
         await message.answer(
-            collection_status_text(updated),
-            reply_markup=collection_keyboard(updated.session_id),
+            collection_status_text(updated, current_locale),
+            reply_markup=collection_keyboard(updated.session_id, current_locale),
             parse_mode=ParseMode.HTML,
         )
         return True
@@ -251,14 +292,19 @@ class TelegramCollectionGateway:
         parsed = parse_session_callback(callback.data)
         message = callback.message
         user = callback.from_user
+        current_locale = resolve_locale(user.language_code)
+        await _remember_locale(self._locale_store, user.id, current_locale)
         if parsed is None or not isinstance(message, Message):
-            await callback.answer("Сессия больше недоступна.", show_alert=True)
+            await callback.answer(
+                session_unavailable_text(current_locale),
+                show_alert=True,
+            )
             return
 
         action, session_id = parsed
         if not await self._rate_limiter.allow(user.id):
             await callback.answer(
-                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, Locale.RU),
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale),
                 show_alert=True,
             )
             return
@@ -279,7 +325,7 @@ class TelegramCollectionGateway:
                     session_id=session_id,
                     ttl_seconds=ttl,
                 )
-                await callback.answer("Отправьте следующий файл в этот чат.", show_alert=True)
+                await callback.answer(session_add_hint(current_locale), show_alert=True)
                 return
 
             if action == "cancel":
@@ -293,7 +339,7 @@ class TelegramCollectionGateway:
                     chat_id=message.chat.id,
                     expected_session_id=session_id,
                 )
-                await message.edit_text("Сборка файлов отменена.")
+                await message.edit_text(session_cancelled_text(current_locale))
                 await callback.answer()
                 return
 
@@ -308,15 +354,19 @@ class TelegramCollectionGateway:
                 expected_session_id=session_id,
             )
             await callback.answer()
-            await self._enqueue_finalized(message, user.id, plan)
+            await self._enqueue_finalized(message, user.id, plan, current_locale)
         except Exception as exc:
-            await callback.answer(error_text(_session_error_code(exc), Locale.RU), show_alert=True)
+            await callback.answer(
+                error_text(_session_error_code(exc), current_locale),
+                show_alert=True,
+            )
 
     async def _enqueue_finalized(
         self,
         message: Message,
         user_id: int,
         plan: FinalizedSessionPlan,
+        locale: Locale,
     ) -> None:
         request = StartJobRequest(
             user_id=user_id,
@@ -332,7 +382,7 @@ class TelegramCollectionGateway:
                 prepare=lambda job: self._download_plan(job, plan),
             )
         except JobAdmissionRejected as exc:
-            await message.answer(error_text(exc.code.value, Locale.RU))
+            await message.answer(error_text(exc.code.value, locale))
             return
         except Exception as exc:
             await self._delete_finalized_best_effort(
@@ -340,7 +390,7 @@ class TelegramCollectionGateway:
                 user_id=user_id,
                 chat_id=message.chat.id,
             )
-            await message.answer(error_text(_session_error_code(exc), Locale.RU))
+            await message.answer(error_text(_session_error_code(exc), locale))
             return
 
         await self._delete_finalized_best_effort(
@@ -349,14 +399,17 @@ class TelegramCollectionGateway:
             chat_id=message.chat.id,
         )
         if result.job.state is JobState.FAILED:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, locale))
             return
         if result.created:
             await message.answer(
-                f"{operation_title(plan.operation_id, Locale.RU)}: принято в обработку."
+                collection_accepted_text(
+                    operation_title(plan.operation_id, locale),
+                    locale,
+                )
             )
         else:
-            await message.answer("Эта сборка уже принята к обработке.")
+            await message.answer(collection_duplicate_text(locale))
 
     async def _download_plan(
         self,
@@ -425,6 +478,19 @@ class TelegramCollectionGateway:
             )
         except Exception:
             LOGGER.exception("finalized collection session cleanup failed")
+
+
+async def _remember_locale(
+    store: RedisUserLocaleStore | None,
+    user_id: int,
+    locale: Locale,
+) -> None:
+    if store is None:
+        return
+    try:
+        await store.remember(user_id, locale)
+    except Exception:
+        LOGGER.exception("telegram session locale hint write failed")
 
 
 def parse_session_callback(raw: str | None) -> tuple[str, UUID] | None:

@@ -17,7 +17,13 @@ from simpleconvbot.image_engine import (
     ImageTransform,
 )
 from simpleconvbot.jobs import JobAdmissionRejected, JobSnapshot
-from simpleconvbot.localization import Locale, UserErrorCode, error_text, operation_title
+from simpleconvbot.localization import (
+    Locale,
+    UserErrorCode,
+    error_text,
+    operation_title,
+    resolve_locale,
+)
 from simpleconvbot.media_engine import (
     AudioOutputFormat,
     MediaEngine,
@@ -26,6 +32,7 @@ from simpleconvbot.media_engine import (
 from simpleconvbot.operations import OperationDefinition
 from simpleconvbot.pdf_engine import PdfEngine, PdfEngineError, PdfErrorCode
 from simpleconvbot.ports import DeliveryPort, ExecutionResult, OperationExecutor
+from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.services import JobService, StartJobRequest
 from simpleconvbot.storage import LocalTemporaryStorage
@@ -37,6 +44,7 @@ from simpleconvbot.telemetry import (
     emit_telemetry,
     opaque_correlation_id,
 )
+from simpleconvbot.ui import operation_accepted_text, operation_duplicate_text
 
 LOGGER = logging.getLogger(__name__)
 INPUT_NAME = "input"
@@ -289,17 +297,23 @@ class TelegramOperationExecutor(OperationExecutor):
 
 
 class TelegramDelivery(DeliveryPort):
-    def __init__(self, bot: Bot) -> None:
+    def __init__(
+        self,
+        bot: Bot,
+        locale_store: RedisUserLocaleStore | None = None,
+    ) -> None:
         self._bot = bot
+        self._locale_store = locale_store
 
     async def deliver(self, job: JobSnapshot, result: ExecutionResult) -> None:
         started = monotonic()
+        locale = await _stored_locale(self._locale_store, job.user_id)
         try:
             for index, output_ref in enumerate(result.output_refs):
                 await self._bot.send_document(
                     job.chat_id,
                     FSInputFile(output_ref),
-                    caption=operation_title(job.operation_id, Locale.RU) if index == 0 else None,
+                    caption=(operation_title(job.operation_id, locale) if index == 0 else None),
                 )
         except Exception as exc:
             _emit(
@@ -313,10 +327,11 @@ class TelegramDelivery(DeliveryPort):
         _emit(job, OperationStage.UPLOAD, OperationOutcome.SUCCESS, started)
 
     async def deliver_failure(self, job: JobSnapshot, error_code: str) -> None:
+        locale = await _stored_locale(self._locale_store, job.user_id)
         try:
             await self._bot.send_message(
                 job.chat_id,
-                error_text(error_code, Locale.RU),
+                error_text(error_code, locale),
             )
         except Exception:
             LOGGER.exception("telegram failure notification failed")
@@ -330,23 +345,42 @@ class TelegramExecutionGateway:
         jobs: JobService,
         storage: LocalTemporaryStorage,
         rate_limiter: RedisUpdateRateLimiter,
+        locale_store: RedisUserLocaleStore | None = None,
     ) -> None:
         self._bot = bot
         self._jobs = jobs
         self._storage = storage
         self._rate_limiter = rate_limiter
+        self._locale_store = locale_store
 
-    async def start_image(self, message: Message, operation_id: str) -> None:
-        await self.start_operation(message, operation_id)
+    async def start_image(
+        self,
+        message: Message,
+        operation_id: str,
+        *,
+        locale: Locale | None = None,
+    ) -> None:
+        await self.start_operation(message, operation_id, locale=locale)
 
-    async def start_operation(self, message: Message, operation_id: str) -> None:
+    async def start_operation(
+        self,
+        message: Message,
+        operation_id: str,
+        *,
+        locale: Locale | None = None,
+    ) -> None:
         user = message.from_user
         attachment = message_file(message)
+        current_locale = locale or resolve_locale(user.language_code if user is not None else None)
         if user is None or attachment is None:
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
+
+        await _remember_locale(self._locale_store, user.id, current_locale)
         if not await self._rate_limiter.allow(user.id):
-            await message.answer(error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, Locale.RU))
+            await message.answer(
+                error_text(UserErrorCode.RATE_LIMIT_EXCEEDED.value, current_locale)
+            )
             return
 
         request = StartJobRequest(
@@ -362,20 +396,20 @@ class TelegramExecutionGateway:
                 prepare=lambda job: self._download(job, attachment),
             )
         except JobAdmissionRejected as exc:
-            await message.answer(error_text(exc.code.value, Locale.RU))
+            await message.answer(error_text(exc.code.value, current_locale))
             return
         except UserFacingError as exc:
-            await message.answer(error_text(exc.code, Locale.RU))
+            await message.answer(error_text(exc.code, current_locale))
             return
         except Exception:
             LOGGER.exception("telegram operation preparation failed")
-            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, Locale.RU))
+            await message.answer(error_text(UserErrorCode.INTERNAL_ERROR.value, current_locale))
             return
 
         if result.created:
-            await message.answer("Принято. Начинаю обработку файла.")
+            await message.answer(operation_accepted_text(current_locale))
         else:
-            await message.answer("Эта операция уже принята к обработке.")
+            await message.answer(operation_duplicate_text(current_locale))
 
     async def _download(self, job: JobSnapshot, attachment: TelegramFile) -> None:
         started = monotonic()
@@ -390,6 +424,32 @@ class TelegramExecutionGateway:
             await self._storage.cleanup_workspace(job.job_id)
             raise UserFacingError(UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value) from exc
         _emit(job, OperationStage.VALIDATION, OperationOutcome.SUCCESS, started)
+
+
+async def _remember_locale(
+    store: RedisUserLocaleStore | None,
+    user_id: int,
+    locale: Locale,
+) -> None:
+    if store is None:
+        return
+    try:
+        await store.remember(user_id, locale)
+    except Exception:
+        LOGGER.exception("telegram locale hint write failed")
+
+
+async def _stored_locale(
+    store: RedisUserLocaleStore | None,
+    user_id: int,
+) -> Locale:
+    if store is None:
+        return Locale.RU
+    try:
+        return await store.get(user_id) or Locale.RU
+    except Exception:
+        LOGGER.exception("telegram locale hint read failed")
+        return Locale.RU
 
 
 async def _execute_media(

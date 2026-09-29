@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from aiogram.types import InlineKeyboardMarkup
 
+from simpleconvbot.localization import Locale
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
     CATEGORY_TITLES,
@@ -19,8 +20,11 @@ from simpleconvbot.ui import (
     image_actions_keyboard,
     image_document_card,
     pdf_actions_keyboard,
+    pdf_card,
+    settings_text,
     tools_keyboard,
     video_actions_keyboard,
+    welcome_text,
 )
 
 
@@ -104,3 +108,22 @@ def test_collection_callbacks_fit_telegram_limit_and_bind_session() -> None:
         f"sess:cancel:{session_id}",
     }
     assert all(len(value.encode("utf-8")) <= 64 for value in callbacks)
+
+
+def _button_text(markup: InlineKeyboardMarkup) -> set[str]:
+    return {button.text for row in markup.inline_keyboard for button in row}
+
+
+def test_english_ui_is_real_not_catalog_only() -> None:
+    assert "Send a file" in welcome_text(Locale.EN)
+    assert "interface follows your Telegram language" in settings_text(Locale.EN)
+    assert "What would you like to do?" in pdf_card("sample.pdf", 1024, Locale.EN)
+    assert "📎 Send a file" in _button_text(home_keyboard(Locale.EN))
+    assert "🧰 All tools" in _button_text(home_keyboard(Locale.EN))
+    assert "← Back" in _button_text(audio_actions_keyboard(Locale.EN))
+
+
+def test_russian_remains_default_for_existing_clients() -> None:
+    assert "Отправь файл" in welcome_text(Locale.RU)
+    assert "Что сделать?" in pdf_card("sample.pdf", 1024, Locale.RU)
+    assert "📎 Отправить файл" in _button_text(home_keyboard())
