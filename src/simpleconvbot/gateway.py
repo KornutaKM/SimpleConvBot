@@ -27,7 +27,6 @@ from simpleconvbot.telegram_execution import (
 from simpleconvbot.telegram_sessions import TelegramCollectionGateway
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
-    CATEGORY_TITLES,
     HOME_CALLBACK,
     IMAGE_ACTION_TITLES,
     PDF_ACTION_TITLES,
