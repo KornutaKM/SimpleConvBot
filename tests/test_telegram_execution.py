@@ -4,7 +4,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from PIL import Image
-from pypdf import PdfWriter
+import pytest
+from pypdf import PdfReader, PdfWriter
 
 from simpleconvbot.jobs import JobSnapshot, JobState
 from simpleconvbot.operations import OperationDefinition
@@ -12,6 +13,7 @@ from simpleconvbot.storage import LocalTemporaryStorage
 from simpleconvbot.telegram_execution import (
     TelegramImageExecutor,
     TelegramPdfExecutor,
+    UserFacingError,
     audio_operation,
     image_operation,
     pdf_operation,
@@ -101,3 +103,90 @@ def _job(operation_id: str) -> JobSnapshot:
         created_at=now,
         updated_at=now,
     )
+
+
+def test_pdf_executor_creates_pdf_from_ordered_images(tmp_path: Path) -> None:
+    asyncio.run(_pdf_executor_creates_pdf_from_ordered_images(tmp_path))
+
+
+async def _pdf_executor_creates_pdf_from_ordered_images(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("pdf.from_images")
+    workspace = await storage.ensure_workspace(job.job_id)
+    first = await storage.workspace_file(job.job_id, "input-0001")
+    second = await storage.workspace_file(job.job_id, "input-0002")
+    Image.new("RGB", (20, 10), "red").save(first, format="PNG")
+    Image.new("RGB", (30, 15), "blue").save(second, format="JPEG")
+
+    result = await TelegramPdfExecutor(storage).execute(
+        job,
+        OperationDefinition("pdf.from_images", 1, "pdf"),
+        workspace,
+    )
+
+    output = Path(result.output_ref)
+    assert output.name == "result.pdf"
+    reader = PdfReader(output, strict=True)
+    try:
+        assert len(reader.pages) == 2
+    finally:
+        reader.close()
+
+
+def test_pdf_executor_merges_pdfs_in_persisted_input_order(tmp_path: Path) -> None:
+    asyncio.run(_pdf_executor_merges_pdfs_in_persisted_input_order(tmp_path))
+
+
+async def _pdf_executor_merges_pdfs_in_persisted_input_order(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("pdf.merge")
+    workspace = await storage.ensure_workspace(job.job_id)
+    first = await storage.workspace_file(job.job_id, "input-0001")
+    second = await storage.workspace_file(job.job_id, "input-0002")
+
+    for path, width in ((first, 100), (second, 200)):
+        writer = PdfWriter()
+        try:
+            writer.add_blank_page(width=width, height=100)
+            with path.open("wb") as stream:
+                writer.write(stream)
+        finally:
+            writer.close()
+
+    result = await TelegramPdfExecutor(storage).execute(
+        job,
+        OperationDefinition("pdf.merge", 1, "pdf"),
+        workspace,
+    )
+
+    reader = PdfReader(result.output_ref, strict=True)
+    try:
+        widths = tuple(float(page.mediabox.width) for page in reader.pages)
+    finally:
+        reader.close()
+    assert widths == (100.0, 200.0)
+
+
+def test_pdf_executor_rejects_non_contiguous_collection_inputs(tmp_path: Path) -> None:
+    asyncio.run(_pdf_executor_rejects_non_contiguous_collection_inputs(tmp_path))
+
+
+async def _pdf_executor_rejects_non_contiguous_collection_inputs(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("pdf.merge")
+    workspace = await storage.ensure_workspace(job.job_id)
+    source = await storage.workspace_file(job.job_id, "input-0002")
+    writer = PdfWriter()
+    try:
+        writer.add_blank_page(width=100, height=100)
+        with source.open("wb") as stream:
+            writer.write(stream)
+    finally:
+        writer.close()
+
+    with pytest.raises(UserFacingError):
+        await TelegramPdfExecutor(storage).execute(
+            job,
+            OperationDefinition("pdf.merge", 1, "pdf"),
+            workspace,
+        )
