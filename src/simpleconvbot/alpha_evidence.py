@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from simpleconvbot.alpha_manual_review import current_git_commit, load_review, review_summary
+
 _REQUIRED_E2E_STAGES = frozenset({"validation", "queue", "worker", "upload", "cleanup"})
 
 
@@ -318,6 +320,37 @@ def summarize_lines(lines: Iterable[str]) -> dict[str, object]:
     return accumulator.to_payload()
 
 
+def apply_manual_review(
+    summary: dict[str, object],
+    manual_review: dict[str, object],
+) -> dict[str, object]:
+    gates = summary.get("runtime_gates")
+    if not isinstance(gates, dict):
+        raise ValueError("runtime gate summary is missing")
+
+    locales = manual_review.get("locales")
+    if not isinstance(locales, dict):
+        raise ValueError("manual review locale summary is missing")
+
+    remaining: list[str] = []
+    ru = locales.get("ru")
+    en = locales.get("en")
+    if not isinstance(ru, dict) or ru.get("status") != "PASS":
+        remaining.append("russian_ux_coverage")
+    if not isinstance(en, dict) or en.get("status") != "PASS":
+        remaining.append("english_ux_coverage")
+
+    gates["manual_review_remaining"] = remaining
+    gates["all_alpha_gates_ready"] = (
+        gates.get("machine_verifiable_ready") is True
+        and manual_review.get("commit_matches") is True
+        and manual_review.get("manual_review_ready") is True
+        and not remaining
+    )
+    summary["manual_review"] = manual_review
+    return summary
+
+
 def _parse_payload(line: str) -> dict[str, object] | None:
     decoder = json.JSONDecoder()
     offset = line.find("{")
@@ -418,6 +451,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Manual RU/EN review is still required separately."
         ),
     )
+    parser.add_argument(
+        "--manual-review",
+        type=Path,
+        help="Merge a bounded RU/EN review record bound to the current git commit.",
+    )
+    parser.add_argument(
+        "--require-all-gates",
+        action="store_true",
+        help="Exit with status 2 unless machine gates and bound RU/EN review all pass.",
+    )
     args = parser.parse_args(argv)
 
     if args.input is None:
@@ -426,11 +469,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         with args.input.open("r", encoding="utf-8", errors="replace") as stream:
             summary = summarize_lines(stream)
 
+    if args.manual_review is not None:
+        manual = review_summary(
+            load_review(args.manual_review),
+            expected_commit=current_git_commit(),
+        )
+        apply_manual_review(summary, manual)
+
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
     sys.stdout.write("\n")
+
+    gates = summary.get("runtime_gates")
     if args.require_runtime_gates:
-        gates = summary.get("runtime_gates")
         if not isinstance(gates, dict) or gates.get("machine_verifiable_ready") is not True:
+            return 2
+    if args.require_all_gates:
+        if not isinstance(gates, dict) or gates.get("all_alpha_gates_ready") is not True:
             return 2
     return 0
 
