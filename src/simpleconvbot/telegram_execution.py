@@ -35,7 +35,11 @@ from simpleconvbot.ports import DeliveryPort, ExecutionResult, OperationExecutor
 from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.services import JobService, StartJobRequest
-from simpleconvbot.storage import LocalTemporaryStorage
+from simpleconvbot.storage import (
+    LocalTemporaryStorage,
+    StorageErrorCode,
+    StorageSecurityError,
+)
 from simpleconvbot.telemetry import (
     OperationMetricRecorder,
     OperationOutcome,
@@ -455,16 +459,17 @@ class TelegramExecutionGateway:
             await self._bot.download(remote, destination=destination)
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
+            code = telegram_download_error_code(exc)
             await self._storage.cleanup_workspace(job.job_id)
             _emit(
                 job,
                 OperationStage.VALIDATION,
                 OperationOutcome.FAILURE,
                 started,
-                error_code=UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value,
+                error_code=code,
                 metrics=self._metrics,
             )
-            raise UserFacingError(UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value) from exc
+            raise UserFacingError(code) from exc
         _emit(
             job,
             OperationStage.VALIDATION,
@@ -472,6 +477,16 @@ class TelegramExecutionGateway:
             started,
             metrics=self._metrics,
         )
+
+
+def telegram_download_error_code(exc: Exception) -> str:
+    if isinstance(exc, UserFacingError):
+        return exc.code
+    if isinstance(exc, StorageSecurityError):
+        if exc.code is StorageErrorCode.QUOTA_EXCEEDED:
+            return UserErrorCode.TELEGRAM_INPUT_TOO_LARGE.value
+        return exc.code.value
+    return UserErrorCode.TELEGRAM_DOWNLOAD_FAILED.value
 
 
 async def _remember_locale(
