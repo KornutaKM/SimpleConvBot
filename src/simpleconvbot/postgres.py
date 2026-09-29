@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from hashlib import blake2b
 from uuid import UUID, uuid4
 
@@ -35,6 +35,7 @@ from simpleconvbot.jobs import (
     JobNotFound,
     JobSnapshot,
     JobState,
+    TERMINAL_STATES,
     ensure_transition,
 )
 from simpleconvbot.sessions import (
@@ -173,6 +174,38 @@ class PostgresUpdateReceiptStore:
             )
             await session.commit()
             return claimed_id is not None
+
+
+class PostgresOperationalMetadataReaper:
+    def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        self._sessions = sessions
+
+    async def reap_expired(
+        self,
+        *,
+        ttl_seconds: int,
+        now: datetime | None = None,
+    ) -> int:
+        if ttl_seconds <= 0:
+            raise ValueError("ttl_seconds must be greater than zero")
+        current = now or utc_now()
+        cutoff = current - timedelta(seconds=ttl_seconds)
+        terminal_values = tuple(state.value for state in TERMINAL_STATES)
+
+        async with self._sessions() as session, session.begin():
+            update_result = await session.execute(
+                delete(TelegramUpdateRow).where(TelegramUpdateRow.received_at <= cutoff)
+            )
+            job_result = await session.execute(
+                delete(JobRow).where(
+                    JobRow.state.in_(terminal_values),
+                    JobRow.updated_at <= cutoff,
+                )
+            )
+
+        updates_deleted = int(getattr(update_result, "rowcount", 0) or 0)
+        jobs_deleted = int(getattr(job_result, "rowcount", 0) or 0)
+        return updates_deleted + jobs_deleted
 
 
 class PostgresJobRepository:
