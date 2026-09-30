@@ -177,3 +177,59 @@ dependency health, Telegram polling, and at least one conversion.
 
 Do not restore the temporary app workspace. Restore PostgreSQL only for a
 database incident, not as part of routine application rollback.
+
+
+## Machine production evidence
+
+Railway exposes the Git commit SHA and deployment/replica identifiers to the
+running service. SimpleConvBot emits only the bounded machine identifiers needed
+for release evidence as a structured `runtime_identity` event. It does not log
+project names, secrets, connection URLs, or bot tokens.
+
+After the deployment reaches a stable state, identify the exact deployment:
+
+```bash
+railway deployment list --service SimpleConvBot --json --limit 5
+```
+
+Export deploy logs for that exact deployment rather than using an unbound
+"latest" stream:
+
+```bash
+railway logs <deployment-id> \
+  --service SimpleConvBot \
+  --environment production \
+  --lines 2000 \
+  > production-runtime.log
+```
+
+Then verify the machine-observable subset:
+
+```bash
+python scripts/production_evidence.py \
+  --input production-runtime.log \
+  --expected-commit <full-40-char-main-sha> \
+  --expected-deployment-id <deployment-id> \
+  --require-machine-ready
+
+echo $?
+```
+
+Exit `0` requires all of the following in the bound deployment log:
+
+- matching Railway commit + deployment identity;
+- singleton runtime lease acquisition;
+- startup recovery summary;
+- retention policy emission;
+- successful cleanup sweep;
+- production dependency health ready;
+- runtime ready;
+- Telegram polling start;
+- no observed Telegram polling-conflict signature.
+
+Exit `2` means one or more machine checks are missing or mismatched.
+
+This output is evidence input for the human-owned
+`.production-review.json`; it does not automatically mutate that manifest or
+approve BotFather, provider-alert, smoke, backup, rollback, or operator-review
+gates.
