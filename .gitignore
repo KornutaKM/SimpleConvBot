@@ -27,6 +27,7 @@ Thumbs.db
 
 # Runtime data
 .alpha-review.json
+.production-review.json
 var/
 tmp/
 *.log

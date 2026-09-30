@@ -149,6 +149,11 @@ Capture without exposing secrets:
 Do not paste rendered `DATABASE_URL`, `REDIS_URL`, or bot tokens into GitHub
 issues or chat.
 
+After the deployment identity is known, initialize the local
+`.production-review.json` with `scripts/production_review.py`. Use that
+commit/deployment-bound manifest for every remaining RELEASE-001 external and
+final-approval gate. The manifest is intentionally ignored by Git.
+
 ## Production smoke
 
 Run the matrix in `docs/PRODUCTION.md` against the production bot. In addition,
