@@ -117,7 +117,9 @@ def image_operation(callback_data: str | None) -> str | None:
         "ui:image:jpg": "image.to_jpeg",
         "ui:image:png": "image.to_png",
         "ui:image:webp": "image.to_webp",
-        "ui:image:compress": "image.compress",
+        "ui:image:compress:best": "image.compress_best",
+        "ui:image:compress:balanced": "image.compress_balanced",
+        "ui:image:compress:smallest": "image.compress_smallest",
         "ui:image:resize:25": "image.resize_25",
         "ui:image:resize:50": "image.resize_50",
         "ui:image:resize:720": "image.resize_720",
@@ -686,7 +688,21 @@ async def _image_transform_request(
     if operation_id == "image.to_webp":
         return ImageTransform(ImageOutputFormat.WEBP, CompressionPreset.BALANCED)
     if operation_id == "image.compress":
+        # Legacy compatibility identity. New Telegram UI uses the source-format
+        # preserving preset operations below.
         return ImageTransform(ImageOutputFormat.WEBP, CompressionPreset.SMALLEST)
+
+    compression = {
+        "image.compress_best": CompressionPreset.BEST,
+        "image.compress_balanced": CompressionPreset.BALANCED,
+        "image.compress_smallest": CompressionPreset.SMALLEST,
+    }.get(operation_id)
+    if compression is not None:
+        info = await to_thread(engine.inspect, source)
+        return ImageTransform(
+            target_format=_source_output_format(info.image_format),
+            compression=compression,
+        )
 
     resize = {
         "image.resize_25": ("percent", 25),
@@ -698,12 +714,7 @@ async def _image_transform_request(
         raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
 
     info = await to_thread(engine.inspect, source)
-    target_format = {
-        ImageFormat.JPEG: ImageOutputFormat.JPEG,
-        ImageFormat.PNG: ImageOutputFormat.PNG,
-        ImageFormat.WEBP: ImageOutputFormat.WEBP,
-        ImageFormat.HEIF: ImageOutputFormat.JPEG,
-    }[info.image_format]
+    target_format = _source_output_format(info.image_format)
 
     kind, value = resize
     if kind == "percent":
@@ -718,6 +729,15 @@ async def _image_transform_request(
         compression=CompressionPreset.BALANCED,
         resize=resize_spec,
     )
+
+
+def _source_output_format(image_format: ImageFormat) -> ImageOutputFormat:
+    return {
+        ImageFormat.JPEG: ImageOutputFormat.JPEG,
+        ImageFormat.PNG: ImageOutputFormat.PNG,
+        ImageFormat.WEBP: ImageOutputFormat.WEBP,
+        ImageFormat.HEIF: ImageOutputFormat.JPEG,
+    }[image_format]
 
 
 def _emit_failure(
