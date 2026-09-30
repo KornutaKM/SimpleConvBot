@@ -92,6 +92,7 @@ Official reference: https://core.telegram.org/bots/api
 - docs/ARCHITECTURE.md — system design and state machines
 - docs/SECURITY_PRIVACY.md — threat model and security/privacy contract
 - docs/PRIVACY.md — public MVP privacy notice
+- docs/BOT_PROFILE.md — canonical Telegram public profile and safe apply procedure
 - docs/RETENTION.md — file/session/metadata retention contract
 - docs/PRODUCTION.md — public production, monitoring, smoke, and rollback runbook
 - docs/RAILWAY.md — first-release Railway deployment contract and evidence procedure
