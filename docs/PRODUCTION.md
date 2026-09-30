@@ -102,7 +102,8 @@ After deployment, use the public production bot and verify:
 
 - `/start`, `/tools`, `/help`, and `/settings`;
 - RU and EN Help/navigation;
-- one image conversion;
+- one image format conversion;
+- one image resize preset, including output-dimension verification;
 - one PDF operation;
 - one audio conversion;
 - one video operation;
