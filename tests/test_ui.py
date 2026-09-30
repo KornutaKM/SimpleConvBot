@@ -19,6 +19,8 @@ from simpleconvbot.ui import (
     home_keyboard,
     image_actions_keyboard,
     image_document_card,
+    image_resize_keyboard,
+    image_resize_text,
     pdf_actions_keyboard,
     pdf_card,
     pdf_info_text,
@@ -69,8 +71,24 @@ def test_image_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
         "ui:image:webp",
         "ui:image:pdf",
         "ui:image:compress",
+        "ui:image:resize",
         TOOLS_CALLBACK,
     }
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_resize_keyboard_exposes_only_safe_presets_and_back() -> None:
+    callback_data = _callback_data(image_resize_keyboard(Locale.EN))
+
+    assert callback_data == {
+        "ui:image:resize:25",
+        "ui:image:resize:50",
+        "ui:image:resize:720",
+        "ui:image:resize:1080",
+        "ui:image:resize:back",
+    }
+    assert "do not upscale" in image_resize_text(Locale.EN)
+    assert "не увеличивают" in image_resize_text(Locale.RU)
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
@@ -182,6 +200,8 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "after 1 hour" in en
     assert "скрепку Telegram" in ru
     assert "Telegram attachment button" in en
+    assert "изменение размера" in ru
+    assert "resize" in en
     assert _callback_data(help_keyboard(Locale.RU)) == {HOME_CALLBACK}
     assert _callback_data(help_keyboard(Locale.EN)) == {HOME_CALLBACK}
 
