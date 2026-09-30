@@ -54,7 +54,9 @@ def test_runtime_identity_rejects_unbounded_values(name: str, value: str) -> Non
         RuntimeIdentity.from_mapping({name: value})
 
 
-def test_runtime_identity_and_lifecycle_are_structured_json(caplog: pytest.LogCaptureFixture) -> None:
+def test_runtime_identity_and_lifecycle_are_structured_json(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     logger = logging.getLogger("test.runtime.identity")
     caplog.set_level(logging.INFO, logger=logger.name)
     identity = RuntimeIdentity.from_mapping(
