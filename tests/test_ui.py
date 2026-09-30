@@ -18,6 +18,8 @@ from simpleconvbot.ui import (
     help_text,
     home_keyboard,
     image_actions_keyboard,
+    image_compress_keyboard,
+    image_compress_text,
     image_document_card,
     image_resize_keyboard,
     image_resize_text,
@@ -74,6 +76,20 @@ def test_image_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
         "ui:image:resize",
         TOOLS_CALLBACK,
     }
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_compression_keyboard_exposes_named_presets_and_back() -> None:
+    callback_data = _callback_data(image_compress_keyboard(Locale.EN))
+
+    assert callback_data == {
+        "ui:image:compress:best",
+        "ui:image:compress:balanced",
+        "ui:image:compress:smallest",
+        "ui:image:compress:back",
+    }
+    assert "best quality" in image_compress_text(Locale.EN)
+    assert "лучшее качество" in image_compress_text(Locale.RU)
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
