@@ -75,3 +75,13 @@ def test_router_registers_help_message_command() -> None:
     message_names = {handler.callback.__name__ for handler in router.message.handlers}
 
     assert "help_command" in message_names
+
+
+def test_router_registers_resize_callback_handlers() -> None:
+    router = create_router()
+
+    callback_names = {handler.callback.__name__ for handler in router.callback_query.handlers}
+
+    assert "show_image_resize" in callback_names
+    assert "back_from_image_resize" in callback_names
+    assert "execute_image_resize" in callback_names

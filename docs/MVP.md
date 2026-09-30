@@ -19,8 +19,7 @@ Initial operations:
 - convert to PNG
 - convert to WEBP
 - compress with safe presets
-- resize by common presets
-- resize to a bounded custom dimension
+- resize by safe fixed presets: 25%, 50%, max 720 px, max 1080 px
 - create a one-page PDF
 
 Required metadata where available:
@@ -102,9 +101,11 @@ Video compression:
 Resize:
 - 25%
 - 50%
-- 720 px
-- 1080 px
-- custom bounded size
+- max 720 px (no upscaling)
+- max 1080 px (no upscaling)
+
+Custom width/height input is deferred until operation parameters can be persisted
+through the job model without weakening idempotency or restart recovery.
 
 Internal numeric values belong to operation policy/configuration and can evolve without changing the public operation identity.
 

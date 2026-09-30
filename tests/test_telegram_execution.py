@@ -42,6 +42,10 @@ from simpleconvbot.telemetry import OperationStage
 def test_callback_mappings_are_explicit_and_closed() -> None:
     assert image_operation("ui:image:png") == "image.to_png"
     assert image_operation("ui:image:resize") is None
+    assert image_operation("ui:image:resize:25") == "image.resize_25"
+    assert image_operation("ui:image:resize:50") == "image.resize_50"
+    assert image_operation("ui:image:resize:720") == "image.resize_720"
+    assert image_operation("ui:image:resize:1080") == "image.resize_1080"
     assert pdf_operation("ui:pdf:jpg") == "pdf.to_jpeg_images"
     assert pdf_operation("ui:pdf:png") == "pdf.to_images"
     assert pdf_operation("ui:pdf:split") == "pdf.extract_pages"
@@ -74,6 +78,94 @@ async def _image_executor_uses_workspace_input_and_validates_output(tmp_path: Pa
     with Image.open(result.output_ref) as converted:
         assert converted.format == "PNG"
         assert converted.size == (16, 8)
+
+
+def test_image_executor_resize_percent_preserves_source_format(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_resize_percent_preserves_source_format(tmp_path))
+
+
+async def _image_executor_resize_percent_preserves_source_format(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.resize_50")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (400, 200), "red").save(source, format="PNG")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.resize_50", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.png"
+    with Image.open(result.output_ref) as resized:
+        assert resized.format == "PNG"
+        assert resized.size == (200, 100)
+
+
+def test_image_executor_resize_box_does_not_upscale(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_resize_box_does_not_upscale(tmp_path))
+
+
+async def _image_executor_resize_box_does_not_upscale(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.resize_720")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (320, 160), "blue").save(source, format="JPEG")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.resize_720", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.jpg"
+    with Image.open(result.output_ref) as resized:
+        assert resized.format == "JPEG"
+        assert resized.size == (320, 160)
+
+
+def test_image_executor_resize_box_downscales_long_side(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_resize_box_downscales_long_side(tmp_path))
+
+
+async def _image_executor_resize_box_downscales_long_side(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.resize_720")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (1440, 720), "green").save(source, format="WEBP")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.resize_720", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.webp"
+    with Image.open(result.output_ref) as resized:
+        assert resized.format == "WEBP"
+        assert resized.size == (720, 360)
+
+
+def test_image_executor_resize_heif_returns_jpeg(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_resize_heif_returns_jpeg(tmp_path))
+
+
+async def _image_executor_resize_heif_returns_jpeg(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.resize_25")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (80, 40), "purple").save(source, format="HEIF")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.resize_25", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.jpg"
+    with Image.open(result.output_ref) as resized:
+        assert resized.format == "JPEG"
+        assert resized.size == (20, 10)
 
 
 def test_pdf_executor_returns_all_rendered_pages(tmp_path: Path) -> None:

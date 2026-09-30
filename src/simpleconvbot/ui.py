@@ -146,6 +146,22 @@ def settings_text(locale: Locale) -> str:
     )
 
 
+def image_resize_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        (
+            "📐 <b>Изменение размера</b>\n\n"
+            "Выберите безопасный пресет. 720 px и 1080 px задают максимальную сторону "
+            "и не увеличивают маленькие изображения."
+        ),
+        (
+            "📐 <b>Resize image</b>\n\n"
+            "Choose a safe preset. 720 px and 1080 px set the maximum side "
+            "and do not upscale smaller images."
+        ),
+    )
+
+
 def help_text(locale: Locale) -> str:
     return _pick(
         locale,
@@ -156,7 +172,7 @@ def help_text(locale: Locale) -> str:
             "2. Выберите действие.\n"
             "3. Дождитесь готового результата.\n\n"
             "<b>Что умеет SimpleConv</b>\n"
-            "🖼 Изображения: JPG, PNG, WebP, сжатие, изображения → PDF.\n"
+            "🖼 Изображения: JPG, PNG, WebP, сжатие, изменение размера, изображения → PDF.\n"
             "📄 PDF: JPG, PNG, разделение, объединение, информация о PDF.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
             "🎬 Видео: MP3, без звука, GIF, сжатие.\n\n"
@@ -176,7 +192,7 @@ def help_text(locale: Locale) -> str:
             "2. Choose an action.\n"
             "3. Wait for the converted result.\n\n"
             "<b>What SimpleConv can do</b>\n"
-            "🖼 Images: JPG, PNG, WebP, compression, images → PDF.\n"
+            "🖼 Images: JPG, PNG, WebP, compression, resize, images → PDF.\n"
             "📄 PDF: JPG, PNG, split, merge, PDF information.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
             "🎬 Video: MP3, mute, GIF, compression.\n\n"
@@ -327,8 +343,32 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                 _button("WebP", "ui:image:webp"),
                 _button("PDF", "ui:image:pdf"),
             ],
-            [_button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress")],
+            [
+                _button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress"),
+                _button(f"📐 {titles['ui:image:resize']}", "ui:image:resize"),
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
+        ]
+    )
+
+
+def image_resize_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button("25%", "ui:image:resize:25"),
+                _button("50%", "ui:image:resize:50"),
+            ],
+            [
+                _button("≤ 720 px", "ui:image:resize:720"),
+                _button("≤ 1080 px", "ui:image:resize:1080"),
+            ],
+            [
+                _button(
+                    _pick(locale, "← К изображению", "← Image actions"),
+                    "ui:image:resize:back",
+                )
+            ],
         ]
     )
 

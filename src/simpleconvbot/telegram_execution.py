@@ -13,8 +13,10 @@ from aiogram.types import FSInputFile, Message
 from simpleconvbot.image_engine import (
     CompressionPreset,
     ImageEngine,
+    ImageFormat,
     ImageOutputFormat,
     ImageTransform,
+    ResizeSpec,
 )
 from simpleconvbot.jobs import JobAdmissionRejected, JobSnapshot
 from simpleconvbot.localization import (
@@ -116,6 +118,10 @@ def image_operation(callback_data: str | None) -> str | None:
         "ui:image:png": "image.to_png",
         "ui:image:webp": "image.to_webp",
         "ui:image:compress": "image.compress",
+        "ui:image:resize:25": "image.resize_25",
+        "ui:image:resize:50": "image.resize_50",
+        "ui:image:resize:720": "image.resize_720",
+        "ui:image:resize:1080": "image.resize_1080",
     }.get(callback_data)
 
 
@@ -174,14 +180,18 @@ class TelegramImageExecutor(OperationExecutor):
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
         try:
             source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
-            target_format, preset = _image_request(operation.operation_id)
-            suffix = target_format.value.lower().replace("jpeg", "jpg")
+            request = await _image_transform_request(
+                self._engine,
+                source,
+                operation.operation_id,
+            )
+            suffix = request.target_format.value.lower().replace("jpeg", "jpg")
             destination = await self._storage.workspace_file(job.job_id, f"result.{suffix}")
             await to_thread(
                 self._engine.transform,
                 source,
                 destination,
-                ImageTransform(target_format=target_format, compression=preset),
+                request,
             )
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
@@ -664,16 +674,50 @@ async def _execute_media(
     raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
 
 
-def _image_request(operation_id: str) -> tuple[ImageOutputFormat, CompressionPreset]:
+async def _image_transform_request(
+    engine: ImageEngine,
+    source: Path,
+    operation_id: str,
+) -> ImageTransform:
     if operation_id == "image.to_jpeg":
-        return ImageOutputFormat.JPEG, CompressionPreset.BALANCED
+        return ImageTransform(ImageOutputFormat.JPEG, CompressionPreset.BALANCED)
     if operation_id == "image.to_png":
-        return ImageOutputFormat.PNG, CompressionPreset.BALANCED
+        return ImageTransform(ImageOutputFormat.PNG, CompressionPreset.BALANCED)
     if operation_id == "image.to_webp":
-        return ImageOutputFormat.WEBP, CompressionPreset.BALANCED
+        return ImageTransform(ImageOutputFormat.WEBP, CompressionPreset.BALANCED)
     if operation_id == "image.compress":
-        return ImageOutputFormat.WEBP, CompressionPreset.SMALLEST
-    raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+        return ImageTransform(ImageOutputFormat.WEBP, CompressionPreset.SMALLEST)
+
+    resize = {
+        "image.resize_25": ("percent", 25),
+        "image.resize_50": ("percent", 50),
+        "image.resize_720": ("box", 720),
+        "image.resize_1080": ("box", 1080),
+    }.get(operation_id)
+    if resize is None:
+        raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+
+    info = await to_thread(engine.inspect, source)
+    target_format = {
+        ImageFormat.JPEG: ImageOutputFormat.JPEG,
+        ImageFormat.PNG: ImageOutputFormat.PNG,
+        ImageFormat.WEBP: ImageOutputFormat.WEBP,
+        ImageFormat.HEIF: ImageOutputFormat.JPEG,
+    }[info.image_format]
+
+    kind, value = resize
+    if kind == "percent":
+        resize_spec = ResizeSpec(percent=value)
+    elif max(info.width, info.height) <= value:
+        resize_spec = ResizeSpec(percent=100)
+    else:
+        resize_spec = ResizeSpec(width=value, height=value)
+
+    return ImageTransform(
+        target_format=target_format,
+        compression=CompressionPreset.BALANCED,
+        resize=resize_spec,
+    )
 
 
 def _emit_failure(
