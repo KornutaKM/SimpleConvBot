@@ -146,6 +146,22 @@ def settings_text(locale: Locale) -> str:
     )
 
 
+def image_compress_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        (
+            "🗜 <b>Сжатие изображения</b>\n\n"
+            "Выберите пресет: лучшее качество, баланс качества и размера "
+            "или минимальный размер."
+        ),
+        (
+            "🗜 <b>Compress image</b>\n\n"
+            "Choose a preset: best quality, balanced quality/size, "
+            "or smallest output."
+        ),
+    )
+
+
 def image_resize_text(locale: Locale) -> str:
     return _pick(
         locale,
@@ -348,6 +364,37 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                 _button(f"📐 {titles['ui:image:resize']}", "ui:image:resize"),
             ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
+        ]
+    )
+
+
+def image_compress_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button(
+                    _pick(locale, "Лучшее качество", "Best quality"),
+                    "ui:image:compress:best",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Баланс", "Balanced"),
+                    "ui:image:compress:balanced",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Минимальный размер", "Smallest"),
+                    "ui:image:compress:smallest",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "← К изображению", "← Image actions"),
+                    "ui:image:compress:back",
+                )
+            ],
         ]
     )
 
