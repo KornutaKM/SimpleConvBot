@@ -54,3 +54,52 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 - [ ] Public privacy wording matches the deployed behavior.
 - [ ] All advertised operations have observed production paths.
 - [ ] RELEASE-001 operator review completed.
+
+
+## Production acceptance manifest
+
+Keep the final production attestation in a local, uncommitted
+`.production-review.json`. Initialize it only after the exact production
+deployment exists:
+
+```bash
+python scripts/production_review.py init \
+  --output .production-review.json \
+  --provider railway \
+  --deployment-id <railway-deployment-id> \
+  --runtime-id <immutable-image-or-runtime-id>
+```
+
+The manifest is bound to the current full Git commit. If the checkout moves to a
+different commit, the CLI refuses to mutate the old review and
+`release_ready` becomes false.
+
+Mark one check only after the matching external evidence has actually been
+observed:
+
+```bash
+python scripts/production_review.py mark \
+  --input .production-review.json \
+  --check startup_health_confirmed \
+  --status pass
+```
+
+Show the current state:
+
+```bash
+python scripts/production_review.py show --input .production-review.json
+```
+
+The final release gate is:
+
+```bash
+python scripts/production_review.py show \
+  --input .production-review.json \
+  --require-ready
+
+echo $?
+```
+
+Exit `0` means every production/final-approval check is PASS on the exact
+bound commit and deployment. Exit `2` means at least one item is pending,
+failed, or stale. Do not commit the manifest or raw production logs.
