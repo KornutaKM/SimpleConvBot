@@ -103,3 +103,20 @@ echo $?
 Exit `0` means every production/final-approval check is PASS on the exact
 bound commit and deployment. Exit `2` means at least one item is pending,
 failed, or stale. Do not commit the manifest or raw production logs.
+
+
+## Machine evidence from production logs
+
+For the exact Railway deployment under review, run
+`scripts/production_evidence.py` as documented in `docs/RAILWAY.md`.
+A machine-ready result can support the following manifest decisions after the
+operator confirms the evidence belongs to the same bound deployment:
+
+- `exact_revision_deployed`;
+- `singleton_polling_confirmed`;
+- `startup_health_confirmed`.
+
+The parser intentionally does not mark those checks itself. Production smoke,
+cleanup-after-real-user-flows, backup configuration, provider alerts, BotFather
+configuration, rollback, and final operator approval still require their
+specific external evidence.

@@ -5,6 +5,7 @@ from asyncio import Event, TaskGroup, create_task, wait_for
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
+from os import environ
 from time import monotonic
 
 from aiogram import Bot, Dispatcher
@@ -38,6 +39,11 @@ from simpleconvbot.redis_locale import RedisUserLocaleStore
 from simpleconvbot.redis_queue import RedisJobQueue
 from simpleconvbot.redis_security import RedisUpdateRateLimiter
 from simpleconvbot.redis_sessions import RedisSessionFocusStore
+from simpleconvbot.runtime_identity import (
+    RuntimeIdentity,
+    emit_runtime_identity,
+    emit_runtime_lifecycle,
+)
 from simpleconvbot.runtime_lease import RedisRuntimeLease
 from simpleconvbot.services import JobService, JobWorker, QueueWorker
 from simpleconvbot.sessions import SessionPolicy
@@ -75,6 +81,8 @@ async def run_polling(settings: Settings | None = None) -> None:
     )
     runtime_started = monotonic()
     runtime_version = _package_version()
+    runtime_identity = RuntimeIdentity.from_mapping(environ)
+    emit_runtime_identity(LOGGER, runtime_identity)
     engine = make_engine(current.database_url)
     sessions = make_session_factory(engine)
     redis_client = Redis.from_url(current.redis_url, decode_responses=True)
@@ -214,6 +222,7 @@ async def run_polling(settings: Settings | None = None) -> None:
                 interval_seconds=current.diagnostics_interval_seconds,
             )
         )
+        emit_runtime_lifecycle(LOGGER, event="runtime_ready")
         try:
             await _run_polling_and_worker(dispatcher, bot, worker, stop_runtime)
         finally:
@@ -226,7 +235,7 @@ async def run_polling(settings: Settings | None = None) -> None:
         await lease.acquire(
             timeout_seconds=current.runtime_lease_acquire_timeout_seconds,
         )
-        LOGGER.info("runtime singleton lease acquired")
+        emit_runtime_lifecycle(LOGGER, event="runtime_lease", outcome="acquired")
         try:
             await _run_runtime_with_lease(lease, stop_runtime, owned_runtime)
         finally:
@@ -236,9 +245,9 @@ async def run_polling(settings: Settings | None = None) -> None:
                 LOGGER.exception("runtime singleton lease release failed")
             else:
                 if released:
-                    LOGGER.info("runtime singleton lease released")
+                    emit_runtime_lifecycle(LOGGER, event="runtime_lease", outcome="released")
                 else:
-                    LOGGER.warning("runtime singleton lease was already lost before release")
+                    emit_runtime_lifecycle(LOGGER, event="runtime_lease", outcome="lost")
     finally:
         await bot.session.close()
         await redis_client.aclose()
@@ -280,6 +289,7 @@ async def _run_polling_and_worker(
 
 
 async def _run_dispatcher(dispatcher: Dispatcher, bot: Bot, stop: Event) -> None:
+    emit_runtime_lifecycle(LOGGER, event="polling_start")
     try:
         await dispatcher.start_polling(bot)
     finally:
