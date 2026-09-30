@@ -9,6 +9,7 @@ from aiogram import Bot
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
+from simpleconvbot.image_engine import CompressionPreset, ImageEngine, ImageOutputFormat
 from simpleconvbot.jobs import JobSnapshot, JobState
 from simpleconvbot.localization import UserErrorCode
 from simpleconvbot.metrics import MetricsRegistry
@@ -35,12 +36,17 @@ from simpleconvbot.telegram_execution import (
     pdf_operation,
     telegram_download_error_code,
     video_operation,
+    _image_transform_request,
 )
 from simpleconvbot.telemetry import OperationStage
 
 
 def test_callback_mappings_are_explicit_and_closed() -> None:
     assert image_operation("ui:image:png") == "image.to_png"
+    assert image_operation("ui:image:compress") is None
+    assert image_operation("ui:image:compress:best") == "image.compress_best"
+    assert image_operation("ui:image:compress:balanced") == "image.compress_balanced"
+    assert image_operation("ui:image:compress:smallest") == "image.compress_smallest"
     assert image_operation("ui:image:resize") is None
     assert image_operation("ui:image:resize:25") == "image.resize_25"
     assert image_operation("ui:image:resize:50") == "image.resize_50"
@@ -78,6 +84,93 @@ async def _image_executor_uses_workspace_input_and_validates_output(tmp_path: Pa
     with Image.open(result.output_ref) as converted:
         assert converted.format == "PNG"
         assert converted.size == (16, 8)
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "preset"),
+    [
+        ("image.compress_best", CompressionPreset.BEST),
+        ("image.compress_balanced", CompressionPreset.BALANCED),
+        ("image.compress_smallest", CompressionPreset.SMALLEST),
+    ],
+)
+def test_image_compression_operation_selects_exact_preset(
+    tmp_path: Path,
+    operation_id: str,
+    preset: CompressionPreset,
+) -> None:
+    source = tmp_path / "input.jpg"
+    Image.new("RGB", (32, 16), "red").save(source, format="JPEG")
+
+    request = asyncio.run(_image_transform_request(ImageEngine(), source, operation_id))
+
+    assert request.target_format is ImageOutputFormat.JPEG
+    assert request.compression is preset
+    assert request.resize is None
+
+
+def test_image_executor_compression_preserves_png_format(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_compression_preserves_png_format(tmp_path))
+
+
+async def _image_executor_compression_preserves_png_format(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.compress_balanced")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGBA", (64, 32), (255, 0, 0, 128)).save(source, format="PNG")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.compress_balanced", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.png"
+    with Image.open(result.output_ref) as compressed:
+        assert compressed.format == "PNG"
+        assert compressed.size == (64, 32)
+
+
+def test_legacy_image_compress_identity_keeps_historical_webp_behavior(tmp_path: Path) -> None:
+    asyncio.run(_legacy_image_compress_identity_keeps_historical_webp_behavior(tmp_path))
+
+
+async def _legacy_image_compress_identity_keeps_historical_webp_behavior(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.compress")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (32, 16), "blue").save(source, format="JPEG")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.compress", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.webp"
+    with Image.open(result.output_ref) as compressed:
+        assert compressed.format == "WEBP"
+
+
+def test_image_executor_compression_heif_returns_jpeg(tmp_path: Path) -> None:
+    asyncio.run(_image_executor_compression_heif_returns_jpeg(tmp_path))
+
+
+async def _image_executor_compression_heif_returns_jpeg(tmp_path: Path) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job("image.compress_smallest")
+    source = await storage.workspace_file(job.job_id, "input")
+    Image.new("RGB", (40, 20), "purple").save(source, format="HEIF")
+
+    result = await TelegramImageExecutor(storage).execute(
+        job,
+        OperationDefinition("image.compress_smallest", 1, "image"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.jpg"
+    with Image.open(result.output_ref) as compressed:
+        assert compressed.format == "JPEG"
 
 
 def test_image_executor_resize_percent_preserves_source_format(tmp_path: Path) -> None:
