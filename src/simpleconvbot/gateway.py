@@ -55,6 +55,8 @@ from simpleconvbot.ui import (
     image_actions_keyboard,
     image_back_keyboard,
     image_document_card,
+    image_resize_keyboard,
+    image_resize_text,
     message_unavailable_text,
     pdf_actions_keyboard,
     pdf_back_keyboard,
@@ -126,6 +128,21 @@ async def _edit_callback_message(
         return
     await message.edit_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     await callback.answer()
+
+
+def _image_source_card(source: Message, locale: Locale) -> str | None:
+    if source.photo:
+        photo = source.photo[-1]
+        return photo_card(photo.width, photo.height, photo.file_size, locale)
+    if source.document is not None:
+        document = source.document
+        return image_document_card(
+            document.file_name,
+            document.mime_type,
+            document.file_size,
+            locale,
+        )
+    return None
 
 
 async def _execute_callback(
@@ -303,6 +320,53 @@ def create_router(
             category_back_keyboard(locale),
             locale,
         )
+
+    @router.callback_query(F.data == "ui:image:resize")
+    async def show_image_resize(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message) or _image_source_card(source, locale) is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            image_resize_text(locale),
+            image_resize_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(F.data == "ui:image:resize:back")
+    async def back_from_image_resize(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message):
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        card = _image_source_card(source, locale)
+        if card is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            card,
+            image_actions_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(
+        F.data.in_(
+            {
+                "ui:image:resize:25",
+                "ui:image:resize:50",
+                "ui:image:resize:720",
+                "ui:image:resize:1080",
+            }
+        )
+    )
+    async def execute_image_resize(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, image_operation(callback.data))
 
     @router.callback_query(F.data == "ui:image:pdf")
     async def start_images_to_pdf(callback: CallbackQuery) -> None:
