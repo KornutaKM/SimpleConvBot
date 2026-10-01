@@ -14,4 +14,5 @@ IMAGE_OPERATIONS = (
     OperationDefinition("image.resize_50", 1, "image"),
     OperationDefinition("image.resize_720", 1, "image"),
     OperationDefinition("image.resize_1080", 1, "image"),
+    OperationDefinition("image.info", 1, "image"),
 )

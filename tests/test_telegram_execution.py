@@ -10,6 +10,7 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
 from simpleconvbot.image_engine import CompressionPreset, ImageEngine, ImageOutputFormat
+from simpleconvbot.image_operations import IMAGE_OPERATIONS
 from simpleconvbot.jobs import JobSnapshot, JobState
 from simpleconvbot.localization import UserErrorCode
 from simpleconvbot.media_engine import MediaEngine, VideoCompressionPreset
@@ -56,6 +57,7 @@ def test_callback_mappings_are_explicit_and_closed() -> None:
     assert image_operation("ui:image:resize:50") == "image.resize_50"
     assert image_operation("ui:image:resize:720") == "image.resize_720"
     assert image_operation("ui:image:resize:1080") == "image.resize_1080"
+    assert image_operation("ui:image:info") == "image.info"
     assert pdf_operation("ui:pdf:jpg") == "pdf.to_jpeg_images"
     assert pdf_operation("ui:pdf:png") == "pdf.to_images"
     assert pdf_operation("ui:pdf:split") == "pdf.extract_pages"
@@ -186,6 +188,37 @@ def test_pdf_compression_executor_returns_result_pdf(tmp_path: Path) -> None:
             assert len(reader.pages) == 1
         finally:
             reader.close()
+
+    asyncio.run(scenario())
+
+
+def test_image_info_registry_and_executor_use_actual_content(tmp_path: Path) -> None:
+    operation_ids = {operation.operation_id for operation in IMAGE_OPERATIONS}
+    assert "image.info" in operation_ids
+
+    async def scenario() -> None:
+        storage = LocalTemporaryStorage(tmp_path / "jobs")
+        job = _job("image.info")
+        source = await storage.workspace_file(job.job_id, "input")
+        Image.new("RGBA", (32, 16), (255, 0, 0, 128)).save(source, format="PNG")
+
+        result = await TelegramImageExecutor(storage).execute(
+            job,
+            OperationDefinition("image.info", 1, "image"),
+            await storage.ensure_workspace(job.job_id),
+        )
+
+        assert result.output_refs == ()
+        assert result.delivery_text is not None
+        assert "PNG" in result.delivery_text.ru
+        assert "image/png" in result.delivery_text.ru
+        assert "32\u00d716 px" in result.delivery_text.ru
+        assert "RGBA" in result.delivery_text.ru
+        assert "PNG" in result.delivery_text.en
+        assert "image/png" in result.delivery_text.en
+        assert "32\u00d716 px" in result.delivery_text.en
+        assert "input" not in result.delivery_text.ru.lower()
+        assert "input" not in result.delivery_text.en.lower()
 
     asyncio.run(scenario())
 

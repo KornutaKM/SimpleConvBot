@@ -28,6 +28,9 @@ Required metadata where available:
 - dimensions
 - input size
 
+The Telegram Image Info action must derive this metadata from decoded content rather than
+the original filename extension or Telegram-supplied MIME type.
+
 ### PDF
 
 Accepted input:

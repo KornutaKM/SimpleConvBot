@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from aiogram.types import InlineKeyboardMarkup
 
+from simpleconvbot.image_engine import ImageFormat, ImageInfo
 from simpleconvbot.localization import Locale
 from simpleconvbot.ui import (
     AUDIO_ACTION_TITLES,
@@ -21,6 +22,7 @@ from simpleconvbot.ui import (
     image_compress_keyboard,
     image_compress_text,
     image_document_card,
+    image_info_text,
     image_resize_keyboard,
     image_resize_text,
     pdf_actions_keyboard,
@@ -76,9 +78,35 @@ def test_image_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
         "ui:image:pdf",
         "ui:image:compress",
         "ui:image:resize",
+        "ui:image:info",
         TOOLS_CALLBACK,
     }
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_image_info_text_uses_content_metadata_in_both_locales() -> None:
+    info = ImageInfo(
+        image_format=ImageFormat.PNG,
+        width=32,
+        height=16,
+        mode="RGBA",
+        has_alpha=True,
+        byte_size=1536,
+    )
+
+    ru = image_info_text(info, Locale.RU)
+    en = image_info_text(info, Locale.EN)
+
+    assert "PNG" in ru and "image/png" in ru
+    assert "32×16 px" in ru
+    assert "1.5 KB" in ru
+    assert "RGBA" in ru
+    assert "Прозрачность: <b>да</b>" in ru
+    assert "PNG" in en and "image/png" in en
+    assert "32×16 px" in en
+    assert "1.5 KB" in en
+    assert "RGBA" in en
+    assert "Alpha: <b>yes</b>" in en
 
 
 def test_compression_keyboard_exposes_named_presets_and_back() -> None:
@@ -237,6 +265,8 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "resize" in en
     assert "сжатие с пресетами" in ru
     assert "compression presets" in en
+    assert "фактический формат и размеры" in ru
+    assert "actual format and dimensions" in en
     assert "сжатие без потери качества" in ru
     assert "lossless compression" in en
     assert "не гарантирует уменьшение" in ru

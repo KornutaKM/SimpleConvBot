@@ -5,6 +5,7 @@ from uuid import UUID
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from simpleconvbot.image_engine import ImageFormat, ImageInfo
 from simpleconvbot.localization import Locale
 from simpleconvbot.sessions import CollectionSessionSnapshot, SessionKind
 
@@ -194,6 +195,36 @@ def video_compress_text(locale: Locale) -> str:
     )
 
 
+def image_info_text(info: ImageInfo, locale: Locale = Locale.RU) -> str:
+    media_type = {
+        ImageFormat.JPEG: "image/jpeg",
+        ImageFormat.PNG: "image/png",
+        ImageFormat.WEBP: "image/webp",
+        ImageFormat.HEIF: "image/heif",
+    }[info.image_format]
+    format_name = "HEIF/HEIC" if info.image_format is ImageFormat.HEIF else info.image_format.value
+    alpha = _pick(locale, "да", "yes") if info.has_alpha else _pick(locale, "нет", "no")
+    return _pick(
+        locale,
+        (
+            "ℹ️ <b>Информация об изображении</b>\n\n"
+            f"Формат: <b>{format_name}</b> ({media_type})\n"
+            f"Размер: <b>{info.width}×{info.height} px</b>\n"
+            f"Файл: <b>{format_file_size(info.byte_size, locale)}</b>\n"
+            f"Цветовой режим: <b>{escape(info.mode)}</b>\n"
+            f"Прозрачность: <b>{alpha}</b>"
+        ),
+        (
+            "ℹ️ <b>Image information</b>\n\n"
+            f"Format: <b>{format_name}</b> ({media_type})\n"
+            f"Dimensions: <b>{info.width}×{info.height} px</b>\n"
+            f"File size: <b>{format_file_size(info.byte_size, locale)}</b>\n"
+            f"Pixel mode: <b>{escape(info.mode)}</b>\n"
+            f"Alpha: <b>{alpha}</b>"
+        ),
+    )
+
+
 def help_text(locale: Locale) -> str:
     return _pick(
         locale,
@@ -205,7 +236,7 @@ def help_text(locale: Locale) -> str:
             "3. Дождитесь готового результата.\n\n"
             "<b>Что умеет SimpleConv</b>\n"
             "🖼 Изображения: JPG, PNG, WebP, сжатие с пресетами, изменение размера, "
-            "изображения → PDF.\n"
+            "изображения → PDF, фактический формат и размеры.\n"
             "📄 PDF: JPG, PNG, разделение, объединение, сжатие без потери качества, "
             "информация о PDF. Сжатие не гарантирует уменьшение каждого файла.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
@@ -226,7 +257,8 @@ def help_text(locale: Locale) -> str:
             "2. Choose an action.\n"
             "3. Wait for the converted result.\n\n"
             "<b>What SimpleConv can do</b>\n"
-            "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF.\n"
+            "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF, "
+            "actual format and dimensions.\n"
             "📄 PDF: JPG, PNG, split, merge, lossless compression, PDF information. "
             "Compression does not guarantee every file becomes smaller.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
@@ -381,6 +413,12 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
             [
                 _button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress"),
                 _button(f"📐 {titles['ui:image:resize']}", "ui:image:resize"),
+            ],
+            [
+                _button(
+                    _pick(locale, "ℹ️ Информация", "ℹ️ Info"),
+                    "ui:image:info",
+                )
             ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]

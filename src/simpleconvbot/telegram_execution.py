@@ -64,6 +64,7 @@ from simpleconvbot.telemetry import (
     opaque_correlation_id,
 )
 from simpleconvbot.ui import (
+    image_info_text,
     operation_accepted_text,
     operation_duplicate_text,
     pdf_info_text,
@@ -124,6 +125,7 @@ def image_operation(callback_data: str | None) -> str | None:
         "ui:image:resize:50": "image.resize_50",
         "ui:image:resize:720": "image.resize_720",
         "ui:image:resize:1080": "image.resize_1080",
+        "ui:image:info": "image.info",
     }.get(callback_data)
 
 
@@ -185,25 +187,35 @@ class TelegramImageExecutor(OperationExecutor):
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
         try:
             source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
-            request = await _image_transform_request(
-                self._engine,
-                source,
-                operation.operation_id,
-            )
-            suffix = request.target_format.value.lower().replace("jpeg", "jpg")
-            destination = await self._storage.workspace_file(job.job_id, f"result.{suffix}")
-            await to_thread(
-                self._engine.transform,
-                source,
-                destination,
-                request,
-            )
+            if operation.operation_id == "image.info":
+                info = await to_thread(self._engine.inspect, source)
+                result = ExecutionResult(
+                    delivery_text=LocalizedDeliveryText(
+                        ru=image_info_text(info, Locale.RU),
+                        en=image_info_text(info, Locale.EN),
+                    )
+                )
+            else:
+                request = await _image_transform_request(
+                    self._engine,
+                    source,
+                    operation.operation_id,
+                )
+                suffix = request.target_format.value.lower().replace("jpeg", "jpg")
+                destination = await self._storage.workspace_file(job.job_id, f"result.{suffix}")
+                await to_thread(
+                    self._engine.transform,
+                    source,
+                    destination,
+                    request,
+                )
+                result = ExecutionResult(output_ref=str(destination))
             await self._storage.enforce_quota(job.job_id)
         except Exception as exc:
             _emit_failure(job, started, exc, self._metrics)
             raise
         _emit(job, OperationStage.WORKER, OperationOutcome.SUCCESS, started, metrics=self._metrics)
-        return ExecutionResult(output_ref=str(destination))
+        return result
 
 
 class TelegramPdfExecutor(OperationExecutor):
