@@ -236,7 +236,7 @@ def help_text(locale: Locale) -> str:
             "3. Дождитесь готового результата.\n\n"
             "<b>Что умеет SimpleConv</b>\n"
             "🖼 Изображения: JPG, PNG, WebP, сжатие с пресетами, изменение размера, "
-            "изображения → PDF.\n"
+            "изображения → PDF, фактический формат и размеры.\n"
             "📄 PDF: JPG, PNG, разделение, объединение, сжатие без потери качества, "
             "информация о PDF. Сжатие не гарантирует уменьшение каждого файла.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
@@ -257,7 +257,8 @@ def help_text(locale: Locale) -> str:
             "2. Choose an action.\n"
             "3. Wait for the converted result.\n\n"
             "<b>What SimpleConv can do</b>\n"
-            "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF.\n"
+            "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF, "
+            "actual format and dimensions.\n"
             "📄 PDF: JPG, PNG, split, merge, lossless compression, PDF information. "
             "Compression does not guarantee every file becomes smaller.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
@@ -412,6 +413,12 @@ def image_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
             [
                 _button(f"🗜 {titles['ui:image:compress']}", "ui:image:compress"),
                 _button(f"📐 {titles['ui:image:resize']}", "ui:image:resize"),
+            ],
+            [
+                _button(
+                    _pick(locale, "ℹ️ Информация", "ℹ️ Info"),
+                    "ui:image:info",
+                )
             ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
