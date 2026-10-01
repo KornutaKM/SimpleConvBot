@@ -154,7 +154,7 @@ def test_apply_marks_only_smoke_owned_review_checks() -> None:
     assert review_checks["operator_review_completed"] == "pending"
 
 
-def test_smoke_round_trip_rejects_unexpected_fields(tmp_path) -> None:
+def test_smoke_round_trip_rejects_unexpected_fields(tmp_path: Path) -> None:
     path = tmp_path / "production-smoke.json"
     smoke = new_smoke(review=_review(), expected_commit=COMMIT)
     save_smoke(path, smoke)
