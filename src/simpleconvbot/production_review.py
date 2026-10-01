@@ -11,7 +11,7 @@ from typing import cast
 
 from simpleconvbot.production_evidence import summarize_lines
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PROVIDERS = ("railway",)
 CHECK_IDS = (
     "backup_policy_confirmed",
@@ -39,8 +39,20 @@ MACHINE_IMPORT_CHECK_IDS = (
     "singleton_polling_confirmed",
     "startup_health_confirmed",
 )
+SMOKE_IMPORT_CHECK_IDS = (
+    "production_smoke_completed",
+    "cleanup_success_failure_verified",
+    "oversized_transport_verified",
+    "advertised_operations_observed",
+)
+HUMAN_ATTESTATION_CHECK_IDS = tuple(
+    check_id
+    for check_id in CHECK_IDS
+    if check_id not in {*MACHINE_IMPORT_CHECK_IDS, *SMOKE_IMPORT_CHECK_IDS}
+)
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+_EVIDENCE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@+\-]{0,255}$")
 
 
 def current_git_commit() -> str:
@@ -75,6 +87,7 @@ def new_review(
         "runtime_identity": runtime_identity,
         "updated_at": datetime.now(UTC).isoformat(),
         "checks": {check_id: "pending" for check_id in CHECK_IDS},
+        "evidence_refs": {check_id: None for check_id in HUMAN_ATTESTATION_CHECK_IDS},
     }
 
 
@@ -101,14 +114,53 @@ def mark_review(
     *,
     check_id: str,
     status: str,
+    evidence_ref: str | None = None,
 ) -> dict[str, object]:
     _validate_review(review)
     if check_id not in CHECK_IDS:
         raise ValueError("unknown production review check")
     if status not in STATUSES:
         raise ValueError("status must be pass, fail, or pending")
+
+    if status == "pass":
+        if check_id in MACHINE_IMPORT_CHECK_IDS:
+            raise ValueError("machine-owned check can only pass through import-machine")
+        if check_id in SMOKE_IMPORT_CHECK_IDS:
+            raise ValueError(
+                "smoke-owned check can only pass through production_smoke apply-review"
+            )
+        if evidence_ref is None:
+            raise ValueError("human-owned PASS requires --evidence-ref")
+        _validate_evidence_ref(evidence_ref)
+    elif evidence_ref is not None:
+        raise ValueError("--evidence-ref is only valid with PASS")
+
     checks = cast(dict[str, object], review["checks"])
     checks[check_id] = status
+    if check_id in HUMAN_ATTESTATION_CHECK_IDS:
+        refs = cast(dict[str, object], review["evidence_refs"])
+        refs[check_id] = evidence_ref if status == "pass" else None
+    review["updated_at"] = datetime.now(UTC).isoformat()
+    return review
+
+
+def mark_owned_review_pass(
+    review: dict[str, object],
+    *,
+    check_id: str,
+    owner: str,
+) -> dict[str, object]:
+    _validate_review(review)
+    owned = {
+        "machine": MACHINE_IMPORT_CHECK_IDS,
+        "smoke": SMOKE_IMPORT_CHECK_IDS,
+    }.get(owner)
+    if owned is None:
+        raise ValueError("unknown production review evidence owner")
+    if check_id not in owned:
+        raise ValueError("production review check does not belong to evidence owner")
+    checks = cast(dict[str, object], review["checks"])
+    checks[check_id] = "pass"
     review["updated_at"] = datetime.now(UTC).isoformat()
     return review
 
@@ -137,7 +189,7 @@ def import_machine_evidence(
         raise ValueError("production machine evidence is not ready")
 
     for check_id in MACHINE_IMPORT_CHECK_IDS:
-        mark_review(review, check_id=check_id, status="pass")
+        mark_owned_review_pass(review, check_id=check_id, owner="machine")
     return machine_summary
 
 
@@ -148,6 +200,10 @@ def review_summary(review: dict[str, object], *, expected_commit: str) -> dict[s
     failed = [check_id for check_id in CHECK_IDS if checks[check_id] == "fail"]
     pending = [check_id for check_id in CHECK_IDS if checks[check_id] == "pending"]
     passed = sum(1 for check_id in CHECK_IDS if checks[check_id] == "pass")
+    refs = cast(dict[str, object], review["evidence_refs"])
+    human_evidence_refs = [
+        check_id for check_id in HUMAN_ATTESTATION_CHECK_IDS if refs[check_id] is not None
+    ]
     commit_matches = review["commit_sha"] == expected_commit
     release_ready = commit_matches and not failed and not pending
     return {
@@ -157,6 +213,7 @@ def review_summary(review: dict[str, object], *, expected_commit: str) -> dict[s
         "deployment_id": review["deployment_id"],
         "runtime_identity": review["runtime_identity"],
         "passed": passed,
+        "human_evidence_refs": human_evidence_refs,
         "failed": failed,
         "pending": pending,
         "status": "PASS" if release_ready else "PENDING",
@@ -165,6 +222,8 @@ def review_summary(review: dict[str, object], *, expected_commit: str) -> dict[s
 
 
 def _validate_review(review: dict[str, object]) -> None:
+    if review.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError("unsupported production review schema version")
     expected_keys = {
         "schema_version",
         "commit_sha",
@@ -173,11 +232,10 @@ def _validate_review(review: dict[str, object]) -> None:
         "runtime_identity",
         "updated_at",
         "checks",
+        "evidence_refs",
     }
     if set(review) != expected_keys:
         raise ValueError("production review contains unexpected or missing fields")
-    if review["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("unsupported production review schema version")
 
     commit = review["commit_sha"]
     if not isinstance(commit, str):
@@ -207,6 +265,20 @@ def _validate_review(review: dict[str, object]) -> None:
         if status not in STATUSES:
             raise ValueError("invalid production review status")
 
+    refs = review["evidence_refs"]
+    if not isinstance(refs, dict) or set(refs) != set(HUMAN_ATTESTATION_CHECK_IDS):
+        raise ValueError("production review evidence refs are incomplete")
+    for check_id, value in cast(dict[str, object], refs).items():
+        if value is not None:
+            if not isinstance(value, str):
+                raise ValueError("production review evidence ref must be a string or null")
+            _validate_evidence_ref(value)
+        status = cast(dict[str, object], checks)[check_id]
+        if status == "pass" and value is None:
+            raise ValueError("human-owned PASS is missing evidence ref")
+        if status != "pass" and value is not None:
+            raise ValueError("non-PASS human check cannot retain evidence ref")
+
 
 def _validate_commit(commit_sha: str) -> None:
     if _COMMIT.fullmatch(commit_sha) is None:
@@ -216,6 +288,11 @@ def _validate_commit(commit_sha: str) -> None:
 def _validate_identity(name: str, value: str) -> None:
     if _IDENTITY.fullmatch(value) is None:
         raise ValueError(f"{name} must be a bounded machine identifier")
+
+
+def _validate_evidence_ref(value: str) -> None:
+    if _EVIDENCE_REF.fullmatch(value) is None:
+        raise ValueError("evidence_ref must be a bounded non-secret reference")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -234,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     mark.add_argument("--input", type=Path, required=True)
     mark.add_argument("--check", choices=CHECK_IDS, required=True)
     mark.add_argument("--status", choices=STATUSES, required=True)
+    mark.add_argument("--evidence-ref")
 
     import_machine = subparsers.add_parser("import-machine")
     import_machine.add_argument("--input", type=Path, required=True)
@@ -261,7 +339,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "mark":
             if review["commit_sha"] != current_commit:
                 raise ValueError("production review commit does not match current git HEAD")
-            mark_review(review, check_id=args.check, status=args.status)
+            mark_review(
+                review,
+                check_id=args.check,
+                status=args.status,
+                evidence_ref=args.evidence_ref,
+            )
             save_review(args.input, review)
         elif args.command == "import-machine":
             with args.evidence.open("r", encoding="utf-8", errors="replace") as stream:
