@@ -242,7 +242,7 @@ def help_text(locale: Locale) -> str:
             "🎵 Аудио: MP3, M4A, WAV.\n"
             "🎬 Видео: MP3, без звука, GIF, сжатие с пресетами.\n\n"
             "<b>Несколько файлов</b>\n"
-            "Для «Изображения → PDF» и «Объединить PDF» можно добавить до 20 файлов "
+            "Для «Изображения → PDF» и «Объединить PDF» можно добавить до 20 файлов, удалить последний файл, "
             "общим размером до 40 МБ, затем нажать «Готово». "
             "При стандартном Telegram Bot API размер одного входного файла — до 20 МБ.\n\n"
             "<b>Хранение и ошибки</b>\n"
@@ -264,7 +264,7 @@ def help_text(locale: Locale) -> str:
             "🎵 Audio: MP3, M4A, WAV.\n"
             "🎬 Video: MP3, mute, GIF, compression presets.\n\n"
             "<b>Multiple files</b>\n"
-            "For Images → PDF and Merge PDFs, add up to 20 files with a total size "
+            "For Images → PDF and Merge PDFs, add up to 20 files, remove the last file, and keep a total size "
             "of up to 40 MB, then tap “Done”. "
             "With the standard Telegram Bot API, each input file is limited to 20 MB.\n\n"
             "<b>Storage and errors</b>\n"
@@ -567,22 +567,36 @@ def video_compress_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
 def collection_keyboard(
     session_id: UUID,
     locale: Locale = Locale.RU,
+    *,
+    file_count: int = 0,
 ) -> InlineKeyboardMarkup:
+    if file_count < 0:
+        raise ValueError("file_count must not be negative")
     raw = str(session_id)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    rows = [
+        [
+            _button(
+                _pick(locale, "➕ Добавить файл", "➕ Add file"),
+                f"sess:add:{raw}",
+            )
+        ],
+    ]
+    if file_count > 0:
+        rows.append(
             [
                 _button(
-                    _pick(locale, "➕ Добавить файл", "➕ Add file"),
-                    f"sess:add:{raw}",
+                    _pick(locale, "↩️ Удалить последний", "↩️ Remove last"),
+                    f"sess:remove:{raw}",
                 )
-            ],
-            [
-                _button(_pick(locale, "✅ Готово", "✅ Done"), f"sess:done:{raw}"),
-                _button(_pick(locale, "✖️ Отмена", "✖️ Cancel"), f"sess:cancel:{raw}"),
-            ],
+            ]
+        )
+    rows.append(
+        [
+            _button(_pick(locale, "✅ Готово", "✅ Done"), f"sess:done:{raw}"),
+            _button(_pick(locale, "✖️ Отмена", "✖️ Cancel"), f"sess:cancel:{raw}"),
         ]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def collection_status_text(
@@ -826,6 +840,14 @@ def session_add_hint(locale: Locale) -> str:
         locale,
         "Отправьте следующий файл в этот чат.",
         "Send the next file to this chat.",
+    )
+
+
+def session_removed_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        "Последний файл удалён из сборки.",
+        "The last file was removed from the collection.",
     )
 
 
