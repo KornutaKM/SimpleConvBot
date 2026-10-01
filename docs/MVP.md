@@ -40,7 +40,7 @@ Initial operations:
 - extract a bounded page/range selection
 - split a PDF
 - inspect page count
-- basic compression when it can be done without misleading the user about quality
+- lossless structural compression using fixed content-stream/object optimization; size reduction is not guaranteed and embedded images are not recompressed at lower quality
 
 Multi-file operation:
 

@@ -206,7 +206,8 @@ def help_text(locale: Locale) -> str:
             "<b>Что умеет SimpleConv</b>\n"
             "🖼 Изображения: JPG, PNG, WebP, сжатие с пресетами, изменение размера, "
             "изображения → PDF.\n"
-            "📄 PDF: JPG, PNG, разделение, объединение, информация о PDF.\n"
+            "📄 PDF: JPG, PNG, разделение, объединение, сжатие без потери качества, "
+            "информация о PDF. Сжатие не гарантирует уменьшение каждого файла.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
             "🎬 Видео: MP3, без звука, GIF, сжатие с пресетами.\n\n"
             "<b>Несколько файлов</b>\n"
@@ -226,7 +227,8 @@ def help_text(locale: Locale) -> str:
             "3. Wait for the converted result.\n\n"
             "<b>What SimpleConv can do</b>\n"
             "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF.\n"
-            "📄 PDF: JPG, PNG, split, merge, PDF information.\n"
+            "📄 PDF: JPG, PNG, split, merge, lossless compression, PDF information. "
+            "Compression does not guarantee every file becomes smaller.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
             "🎬 Video: MP3, mute, GIF, compression presets.\n\n"
             "<b>Multiple files</b>\n"
@@ -451,7 +453,13 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                     "ui:pdf:merge",
                 ),
             ],
-            [_button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info")],
+            [
+                _button(
+                    _pick(locale, "🗜 Сжать PDF", "🗜 Compress PDF"),
+                    "ui:pdf:compress",
+                ),
+                _button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info"),
+            ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
         ]
     )

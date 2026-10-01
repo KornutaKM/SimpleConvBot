@@ -118,6 +118,7 @@ def test_pdf_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
         "ui:pdf:png",
         "ui:pdf:split",
         "ui:pdf:merge",
+        "ui:pdf:compress",
         "ui:pdf:info",
         TOOLS_CALLBACK,
     }
@@ -236,6 +237,10 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "resize" in en
     assert "сжатие с пресетами" in ru
     assert "compression presets" in en
+    assert "сжатие без потери качества" in ru
+    assert "lossless compression" in en
+    assert "не гарантирует уменьшение" in ru
+    assert "does not guarantee" in en
     assert _callback_data(help_keyboard(Locale.RU)) == {HOME_CALLBACK}
     assert _callback_data(help_keyboard(Locale.EN)) == {HOME_CALLBACK}
 

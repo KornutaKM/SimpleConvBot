@@ -134,6 +134,7 @@ def pdf_operation(callback_data: str | None) -> str | None:
         "ui:pdf:jpg": "pdf.to_jpeg_images",
         "ui:pdf:png": "pdf.to_images",
         "ui:pdf:split": "pdf.extract_pages",
+        "ui:pdf:compress": "pdf.compress",
         "ui:pdf:info": "pdf.info",
     }.get(callback_data)
 
@@ -246,6 +247,8 @@ class TelegramPdfExecutor(OperationExecutor):
                 result = await self._merge_pdfs(job, workspace)
             elif operation.operation_id == "pdf.extract_pages":
                 result = await self._split_pdf(job)
+            elif operation.operation_id == "pdf.compress":
+                result = await self._compress_pdf(job)
             elif operation.operation_id == "pdf.info":
                 result = await self._inspect_pdf(job)
             else:
@@ -286,6 +289,12 @@ class TelegramPdfExecutor(OperationExecutor):
             output_ref=refs[0],
             additional_output_refs=refs[1:],
         )
+
+    async def _compress_pdf(self, job: JobSnapshot) -> ExecutionResult:
+        source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
+        destination = await self._storage.workspace_file(job.job_id, "result.pdf")
+        await to_thread(self._engine.compress_lossless, source, destination)
+        return ExecutionResult(output_ref=str(destination))
 
     async def _inspect_pdf(self, job: JobSnapshot) -> ExecutionResult:
         source = await self._storage.workspace_file(job.job_id, INPUT_NAME)

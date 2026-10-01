@@ -21,7 +21,7 @@ No generative AI is required for the MVP.
 ## MVP scope
 
 - Images: JPG, PNG, WEBP, HEIC; format conversion, named compression presets, safe resize presets (25%, 50%, max 720/1080 px).
-- PDF: images to PDF, PDF to images, merge, split/extract pages.
+- PDF: images to PDF, PDF to images, merge, split/extract pages, lossless structural compression.
 - Audio: MP3, M4A, WAV conversion.
 - Video: extract audio, create GIF, mute, named compression presets.
 - Multi-file sessions: images to PDF and PDF merge.
