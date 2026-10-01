@@ -107,7 +107,7 @@ After deployment, use the public production bot and verify:
 - one image resize preset, including output-dimension verification;
 - one PDF operation;
 - one audio conversion;
-- one video operation;
+- one video compression preset with a playable MP4 result;
 - images-to-PDF with at least two images;
 - PDF merge with at least two PDFs;
 - unsupported input error;
