@@ -30,6 +30,8 @@ from simpleconvbot.ui import (
     settings_text,
     tools_keyboard,
     video_actions_keyboard,
+    video_compress_keyboard,
+    video_compress_text,
     welcome_text,
 )
 
@@ -138,6 +140,20 @@ def test_video_action_keyboard_uses_fixed_callback_identities() -> None:
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
+def test_video_compression_keyboard_exposes_named_presets_and_back() -> None:
+    callback_data = _callback_data(video_compress_keyboard(Locale.EN))
+
+    assert callback_data == {
+        "ui:video:compress:best",
+        "ui:video:compress:balanced",
+        "ui:video:compress:smallest",
+        "ui:video:compress:back",
+    }
+    assert "best quality" in video_compress_text(Locale.EN)
+    assert "лучшее качество" in video_compress_text(Locale.RU)
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
 def test_file_size_formatting_is_compact() -> None:
     assert format_file_size(None) == "размер неизвестен"
     assert format_file_size(512) == "512 B"
@@ -218,6 +234,8 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "Telegram attachment button" in en
     assert "изменение размера" in ru
     assert "resize" in en
+    assert "сжатие с пресетами" in ru
+    assert "compression presets" in en
     assert _callback_data(help_keyboard(Locale.RU)) == {HOME_CALLBACK}
     assert _callback_data(help_keyboard(Locale.EN)) == {HOME_CALLBACK}
 

@@ -41,7 +41,6 @@ from simpleconvbot.ui import (
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
     TOOLS_CALLBACK,
-    VIDEO_ACTION_TITLES,
     action_title,
     audio_actions_keyboard,
     audio_card,
@@ -78,6 +77,8 @@ from simpleconvbot.ui import (
     unsupported_document_card,
     video_actions_keyboard,
     video_card,
+    video_compress_keyboard,
+    video_compress_text,
     welcome_text,
 )
 
@@ -144,6 +145,18 @@ def _image_source_card(source: Message, locale: Locale) -> str | None:
             document.file_size,
             locale,
         )
+    return None
+
+
+def _video_source_card(source: Message, locale: Locale) -> str | None:
+    if source.video is not None:
+        video = source.video
+        return video_card(video.file_name, video.file_size, locale)
+    if source.document is not None:
+        document = source.document
+        mime_type = document.mime_type
+        if mime_type is not None and mime_type.startswith("video/"):
+            return video_card(document.file_name, document.file_size, locale)
     return None
 
 
@@ -440,7 +453,53 @@ def create_router(
     async def execute_audio_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, audio_operation(callback.data))
 
-    @router.callback_query(F.data.in_(set(VIDEO_ACTION_TITLES)))
+    @router.callback_query(F.data == "ui:video:compress")
+    async def show_video_compress(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message) or _video_source_card(source, locale) is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            video_compress_text(locale),
+            video_compress_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(F.data == "ui:video:compress:back")
+    async def back_from_video_compress(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message):
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        card = _video_source_card(source, locale)
+        if card is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            card,
+            video_actions_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(
+        F.data.in_(
+            {
+                "ui:video:compress:best",
+                "ui:video:compress:balanced",
+                "ui:video:compress:smallest",
+            }
+        )
+    )
+    async def execute_video_compress(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, video_operation(callback.data))
+
+    @router.callback_query(F.data.in_({"ui:video:mp3", "ui:video:mute", "ui:video:gif"}))
     async def execute_video_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, video_operation(callback.data))
 

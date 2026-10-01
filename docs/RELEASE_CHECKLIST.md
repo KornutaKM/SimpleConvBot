@@ -41,7 +41,7 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 - [ ] Confirm startup health/recovery/retention/diagnostics are healthy.
 - [ ] Enable provider alerts for the conditions in `docs/PRODUCTION.md`.
 - [ ] Configure BotFather name/description/avatar and a reachable privacy link.
-- [ ] Run the production smoke matrix in `docs/PRODUCTION.md`, including an image resize preset.
+- [ ] Run the production smoke matrix in `docs/PRODUCTION.md`, including image compression/resize and a video compression preset.
 - [ ] Verify production cleanup after success and failure.
 - [ ] Verify the >20 MiB transport rejection in the production bot.
 - [ ] Perform or explicitly approve a rollback drill using the previous

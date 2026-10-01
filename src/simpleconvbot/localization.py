@@ -75,6 +75,18 @@ _OPERATION_TITLES: dict[str, LocalizedText] = {
     "video.to_mp3": LocalizedText("Видео → MP3", "Video → MP3"),
     "video.mute": LocalizedText("Убрать звук из видео", "Mute video"),
     "video.to_gif": LocalizedText("Видео → GIF", "Video → GIF"),
+    "video.compress_best": LocalizedText(
+        "Сжатие видео: лучшее качество",
+        "Compress video: best quality",
+    ),
+    "video.compress_balanced": LocalizedText(
+        "Сжатие видео: баланс",
+        "Compress video: balanced",
+    ),
+    "video.compress_smallest": LocalizedText(
+        "Сжатие видео: минимальный размер",
+        "Compress video: smallest",
+    ),
     "video.compress": LocalizedText("Сжать видео", "Compress video"),
 }
 
