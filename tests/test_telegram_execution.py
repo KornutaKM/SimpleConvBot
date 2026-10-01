@@ -59,6 +59,7 @@ def test_callback_mappings_are_explicit_and_closed() -> None:
     assert pdf_operation("ui:pdf:jpg") == "pdf.to_jpeg_images"
     assert pdf_operation("ui:pdf:png") == "pdf.to_images"
     assert pdf_operation("ui:pdf:split") == "pdf.extract_pages"
+    assert pdf_operation("ui:pdf:compress") == "pdf.compress"
     assert pdf_operation("ui:pdf:info") == "pdf.info"
     assert audio_operation("ui:audio:mp3") == "audio.to_mp3"
     assert audio_operation("ui:audio:anything") is None
@@ -156,6 +157,35 @@ def test_video_compression_executor_uses_mp4_destination(
 
         assert Path(result.output_ref).name == "result.mp4"
         assert engine.preset is preset
+
+    asyncio.run(scenario())
+
+
+def test_pdf_compression_executor_returns_result_pdf(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        storage = LocalTemporaryStorage(tmp_path / "jobs")
+        job = _job("pdf.compress")
+        source = await storage.workspace_file(job.job_id, "input")
+        writer = PdfWriter()
+        try:
+            writer.add_blank_page(width=120, height=80)
+            with source.open("wb") as output:
+                writer.write(output)
+        finally:
+            writer.close()
+
+        result = await TelegramPdfExecutor(storage).execute(
+            job,
+            OperationDefinition("pdf.compress", 1, "pdf"),
+            await storage.ensure_workspace(job.job_id),
+        )
+
+        assert Path(result.output_ref).name == "result.pdf"
+        reader = PdfReader(result.output_ref, strict=True)
+        try:
+            assert len(reader.pages) == 1
+        finally:
+            reader.close()
 
     asyncio.run(scenario())
 

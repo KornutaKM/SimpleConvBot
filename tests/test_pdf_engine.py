@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DecodedStreamObject, NameObject
 
 from simpleconvbot.image_engine import ImageOutputFormat
 from simpleconvbot.pdf_engine import (
@@ -26,6 +27,55 @@ def _make_pdf(path: Path, sizes: tuple[tuple[float, float], ...]) -> None:
             writer.write(stream)
     finally:
         writer.close()
+
+
+def _make_compressible_pdf(path: Path) -> None:
+    writer = PdfWriter()
+    try:
+        page = writer.add_blank_page(width=300, height=300)
+        stream = DecodedStreamObject()
+        stream.set_data(b"0 0 m 100 100 l S\n" * 10_000)
+        page[NameObject("/Contents")] = stream
+        with path.open("wb") as output:
+            writer.write(output)
+    finally:
+        writer.close()
+
+
+def test_lossless_compression_reduces_compressible_stream_and_validates_output(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    output = tmp_path / "compressed.pdf"
+    _make_compressible_pdf(source)
+    input_size = source.stat().st_size
+
+    info = PdfEngine().compress_lossless(source, output)
+
+    assert info.page_count == 1
+    assert output.stat().st_size < input_size
+    reader = PdfReader(output, strict=True)
+    try:
+        assert len(reader.pages) == 1
+        assert float(reader.pages[0].mediabox.width) == 300.0
+        assert float(reader.pages[0].mediabox.height) == 300.0
+    finally:
+        reader.close()
+    assert not (tmp_path / ".compressed.pdf.partial").exists()
+
+
+def test_lossless_compression_respects_output_limit_and_cleans_partial(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    output = tmp_path / "compressed.pdf"
+    _make_compressible_pdf(source)
+    engine = PdfEngine(PdfPolicy(max_output_bytes=1))
+
+    with pytest.raises(PdfEngineError) as captured:
+        engine.compress_lossless(source, output)
+
+    assert captured.value.code is PdfErrorCode.OUTPUT_TOO_LARGE
+    assert not output.exists()
+    assert not (tmp_path / ".compressed.pdf.partial").exists()
 
 
 def test_inspect_uses_pdf_content_not_extension(tmp_path: Path) -> None:
