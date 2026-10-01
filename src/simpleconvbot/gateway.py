@@ -41,7 +41,6 @@ from simpleconvbot.ui import (
     SEND_FILE_CALLBACK,
     SETTINGS_CALLBACK,
     TOOLS_CALLBACK,
-    VIDEO_ACTION_TITLES,
     action_title,
     audio_actions_keyboard,
     audio_card,
