@@ -109,8 +109,8 @@ After deployment, use the public production bot and verify:
 - lossless PDF compression on a prepared compressible PDF; verify a valid PDF result, unchanged page count, and smaller output;
 - one audio conversion;
 - one video compression preset with a playable MP4 result;
-- images-to-PDF with at least two images;
-- PDF merge with at least two PDFs;
+- images-to-PDF with at least three images: remove the last one, verify the displayed count/size changes, then finalize and confirm the remaining two preserve order;
+- PDF merge with at least three PDFs: remove the last one, finalize, and confirm the remaining PDFs preserve order;
 - unsupported input error;
 - >20 MiB standard-Bot-API input gives the bounded oversized error;
 - process remains healthy and cleanup/diagnostics continue.
