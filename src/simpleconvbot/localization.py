@@ -68,6 +68,7 @@ _OPERATION_TITLES: dict[str, LocalizedText] = {
     "pdf.from_images": LocalizedText("Изображения → PDF", "Images → PDF"),
     "pdf.merge": LocalizedText("Объединить PDF", "Merge PDFs"),
     "pdf.extract_pages": LocalizedText("Извлечь страницы PDF", "Extract PDF pages"),
+    "pdf.compress": LocalizedText("Сжать PDF без потери качества", "Compress PDF losslessly"),
     "pdf.info": LocalizedText("Информация о PDF", "PDF information"),
     "audio.to_mp3": LocalizedText("Аудио → MP3", "Audio → MP3"),
     "audio.to_m4a": LocalizedText("Аудио → M4A", "Audio → M4A"),

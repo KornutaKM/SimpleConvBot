@@ -300,6 +300,46 @@ class PdfEngine:
             expected_pages=len(indices),
         )
 
+    def compress_lossless(self, source: Path, destination: Path) -> PdfInfo:
+        input_info = self.inspect(source)
+        partial = _partial_path(destination)
+        destination.unlink(missing_ok=True)
+        partial.unlink(missing_ok=True)
+
+        reader = self._open_reader(source, max_bytes=self._policy.max_input_bytes)
+        writer = PdfWriter()
+        try:
+            writer.clone_document_from_reader(reader)
+            for page in writer.pages:
+                page.compress_content_streams(level=9)
+            writer.compress_identical_objects(
+                remove_duplicates=True,
+                remove_unreferenced=True,
+            )
+
+            partial.parent.mkdir(parents=True, exist_ok=True)
+            with partial.open("wb") as stream:
+                writer.write(stream)
+
+            self._check_output_size(partial)
+            self._validate_output(partial, expected_pages=input_info.page_count)
+            partial.replace(destination)
+            return self._validate_output(destination, expected_pages=input_info.page_count)
+        except PdfEngineError:
+            destination.unlink(missing_ok=True)
+            partial.unlink(missing_ok=True)
+            raise
+        except Exception as exc:
+            destination.unlink(missing_ok=True)
+            partial.unlink(missing_ok=True)
+            raise PdfEngineError(
+                PdfErrorCode.PROCESSING_FAILED,
+                "lossless PDF compression failed",
+            ) from exc
+        finally:
+            writer.close()
+            reader.close()
+
     def images_to_pdf(self, sources: tuple[Path, ...], destination: Path) -> PdfInfo:
         if not sources:
             raise PdfEngineError(

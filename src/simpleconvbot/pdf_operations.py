@@ -8,5 +8,6 @@ PDF_OPERATIONS = (
     OperationDefinition("pdf.from_images", 1, "pdf"),
     OperationDefinition("pdf.merge", 1, "pdf"),
     OperationDefinition("pdf.extract_pages", 1, "pdf"),
+    OperationDefinition("pdf.compress", 1, "pdf"),
     OperationDefinition("pdf.info", 1, "pdf"),
 )
