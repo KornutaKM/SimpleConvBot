@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from simpleconvbot.production_evidence import summarize_lines
+
 SCHEMA_VERSION = 1
 PROVIDERS = ("railway",)
 CHECK_IDS = (
@@ -32,6 +34,11 @@ CHECK_IDS = (
     "operator_review_completed",
 )
 STATUSES = ("pass", "fail", "pending")
+MACHINE_IMPORT_CHECK_IDS = (
+    "exact_revision_deployed",
+    "singleton_polling_confirmed",
+    "startup_health_confirmed",
+)
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _IDENTITY = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
@@ -104,6 +111,34 @@ def mark_review(
     checks[check_id] = status
     review["updated_at"] = datetime.now(UTC).isoformat()
     return review
+
+
+def import_machine_evidence(
+    review: dict[str, object],
+    *,
+    evidence_lines: list[str],
+    expected_commit: str,
+) -> dict[str, object]:
+    _validate_review(review)
+    _validate_commit(expected_commit)
+    if review["commit_sha"] != expected_commit:
+        raise ValueError("production review commit does not match current git HEAD")
+
+    deployment_id = review["deployment_id"]
+    if not isinstance(deployment_id, str):
+        raise ValueError("deployment_id must be a string")
+
+    machine_summary = summarize_lines(
+        evidence_lines,
+        expected_commit=expected_commit,
+        expected_deployment_id=deployment_id,
+    )
+    if machine_summary["machine_production_ready"] is not True:
+        raise ValueError("production machine evidence is not ready")
+
+    for check_id in MACHINE_IMPORT_CHECK_IDS:
+        mark_review(review, check_id=check_id, status="pass")
+    return machine_summary
 
 
 def review_summary(review: dict[str, object], *, expected_commit: str) -> dict[str, object]:
@@ -200,6 +235,10 @@ def main(argv: list[str] | None = None) -> int:
     mark.add_argument("--check", choices=CHECK_IDS, required=True)
     mark.add_argument("--status", choices=STATUSES, required=True)
 
+    import_machine = subparsers.add_parser("import-machine")
+    import_machine.add_argument("--input", type=Path, required=True)
+    import_machine.add_argument("--evidence", type=Path, required=True)
+
     show = subparsers.add_parser("show")
     show.add_argument("--input", type=Path, required=True)
     show.add_argument("--require-ready", action="store_true")
@@ -223,6 +262,14 @@ def main(argv: list[str] | None = None) -> int:
             if review["commit_sha"] != current_commit:
                 raise ValueError("production review commit does not match current git HEAD")
             mark_review(review, check_id=args.check, status=args.status)
+            save_review(args.input, review)
+        elif args.command == "import-machine":
+            with args.evidence.open("r", encoding="utf-8", errors="replace") as stream:
+                import_machine_evidence(
+                    review,
+                    evidence_lines=list(stream),
+                    expected_commit=current_commit,
+                )
             save_review(args.input, review)
         summary = review_summary(review, expected_commit=current_commit)
 

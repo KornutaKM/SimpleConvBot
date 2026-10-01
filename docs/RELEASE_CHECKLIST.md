@@ -109,14 +109,23 @@ failed, or stale. Do not commit the manifest or raw production logs.
 
 For the exact Railway deployment under review, run
 `scripts/production_evidence.py` as documented in `docs/RAILWAY.md`.
-A machine-ready result can support the following manifest decisions after the
-operator confirms the evidence belongs to the same bound deployment:
+A machine-ready result can populate exactly three manifest checks, but only
+through the explicit `import-machine` command on the same commit-bound review:
 
 - `exact_revision_deployed`;
 - `singleton_polling_confirmed`;
 - `startup_health_confirmed`.
 
-The parser intentionally does not mark those checks itself. Production smoke,
-cleanup-after-real-user-flows, backup configuration, provider alerts, BotFather
-configuration, rollback, and final operator approval still require their
-specific external evidence.
+```bash
+python scripts/production_review.py import-machine \
+  --input .production-review.json \
+  --evidence production-runtime.log
+```
+
+The command reparses the raw log against the review's exact commit and deployment
+binding. It refuses stale checkout state, deployment mismatch, incomplete startup
+evidence, or an observed polling conflict. It cannot mark any other gate.
+
+Production smoke, cleanup-after-real-user-flows, backup configuration, provider
+alerts, BotFather configuration, rollback, privacy/failure/security review, and
+final operator approval still require their specific external evidence.

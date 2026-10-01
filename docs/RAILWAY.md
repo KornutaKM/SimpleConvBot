@@ -229,7 +229,21 @@ Exit `0` requires all of the following in the bound deployment log:
 
 Exit `2` means one or more machine checks are missing or mismatched.
 
-This output is evidence input for the human-owned
-`.production-review.json`; it does not automatically mutate that manifest or
-approve BotFather, provider-alert, smoke, backup, rollback, or operator-review
-gates.
+After an exit `0`, import the same raw log into the deployment-bound review:
+
+```bash
+python scripts/production_review.py import-machine \
+  --input .production-review.json \
+  --evidence production-runtime.log
+```
+
+The import reparses the raw log using the manifest's exact commit and Railway
+deployment ID. It marks only `exact_revision_deployed`,
+`singleton_polling_confirmed`, and `startup_health_confirmed`. It fails closed
+if the checkout is stale, the deployment identity does not match, a required
+startup event is missing, or a polling conflict is observed.
+
+It does not approve Railway project/service configuration, secrets, backup
+policy, provider alerts, BotFather, production smoke, cleanup-after-real-user
+flows, oversized transport behavior, rollback, privacy/failure/security review,
+advertised-operation coverage, or final operator review.
