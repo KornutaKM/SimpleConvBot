@@ -106,6 +106,7 @@ After deployment, use the public production bot and verify:
 - one image compression preset;
 - one image resize preset, including output-dimension verification;
 - image Info on an image sent as a document; verify actual decoded format and dimensions rather than filename/MIME;
+- one fixed PDF page extraction preset on a multi-page PDF; verify exact selected page count/order and a valid PDF result;
 - lossless PDF compression on a prepared compressible PDF; verify a valid PDF result, unchanged page count, and smaller output;
 - one audio conversion;
 - one video compression preset with a playable MP4 result;

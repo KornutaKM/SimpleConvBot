@@ -62,6 +62,8 @@ from simpleconvbot.ui import (
     pdf_actions_keyboard,
     pdf_back_keyboard,
     pdf_card,
+    pdf_extract_keyboard,
+    pdf_extract_text,
     photo_card,
     prototype_action_text,
     send_file_hint,
@@ -146,6 +148,13 @@ def _image_source_card(source: Message, locale: Locale) -> str | None:
             locale,
         )
     return None
+
+
+def _pdf_source_card(source: Message, locale: Locale) -> str | None:
+    document = source.document
+    if document is None or document.mime_type != "application/pdf":
+        return None
+    return pdf_card(document.file_name, document.file_size, locale)
 
 
 def _video_source_card(source: Message, locale: Locale) -> str | None:
@@ -438,6 +447,52 @@ def create_router(
     )
     async def execute_image_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, image_operation(callback.data))
+
+    @router.callback_query(F.data == "ui:pdf:extract")
+    async def show_pdf_extract(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message) or _pdf_source_card(source, locale) is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            pdf_extract_text(locale),
+            pdf_extract_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(F.data == "ui:pdf:extract:back")
+    async def back_from_pdf_extract(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message):
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        card = _pdf_source_card(source, locale)
+        if card is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            card,
+            pdf_actions_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(
+        F.data.in_(
+            {
+                "ui:pdf:extract:first",
+                "ui:pdf:extract:first5",
+                "ui:pdf:extract:last",
+            }
+        )
+    )
+    async def execute_pdf_extract(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, pdf_operation(callback.data))
 
     @router.callback_query(F.data == "ui:pdf:merge")
     async def start_pdf_merge(callback: CallbackQuery) -> None:

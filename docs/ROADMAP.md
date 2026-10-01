@@ -69,7 +69,7 @@ Deliverables:
 - image(s) to PDF
 - merge
 - split/extract
-- bounded page selection
+- bounded page selection through persisted fixed presets
 
 Exit:
 

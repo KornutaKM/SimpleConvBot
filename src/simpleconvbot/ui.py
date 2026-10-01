@@ -79,6 +79,7 @@ PDF_ACTION_TITLES: dict[str, str] = {
     "ui:pdf:jpg": "PDF → JPG",
     "ui:pdf:png": "PDF → PNG",
     "ui:pdf:split": "Разделить PDF",
+    "ui:pdf:extract": "Извлечь страницы",
     "ui:pdf:merge": "Объединить PDF",
     "ui:pdf:compress": "Сжать PDF",
     "ui:pdf:info": "Информация о PDF",
@@ -88,6 +89,7 @@ _PDF_ACTION_EN = {
     "ui:pdf:jpg": "PDF → JPG",
     "ui:pdf:png": "PDF → PNG",
     "ui:pdf:split": "Split PDF",
+    "ui:pdf:extract": "Extract pages",
     "ui:pdf:merge": "Merge PDFs",
     "ui:pdf:compress": "Compress PDF",
     "ui:pdf:info": "PDF info",
@@ -179,6 +181,22 @@ def image_resize_text(locale: Locale) -> str:
     )
 
 
+def pdf_extract_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        (
+            "📑 <b>Извлечь страницы</b>\n\n"
+            "Выберите безопасный пресет. Выбор сохраняется как часть операции, "
+            "поэтому он не теряется в очереди или после перезапуска."
+        ),
+        (
+            "📑 <b>Extract pages</b>\n\n"
+            "Choose a safe preset. The selection is stored as part of the operation, "
+            "so it survives queueing and restarts."
+        ),
+    )
+
+
 def video_compress_text(locale: Locale) -> str:
     return _pick(
         locale,
@@ -237,8 +255,9 @@ def help_text(locale: Locale) -> str:
             "<b>Что умеет SimpleConv</b>\n"
             "🖼 Изображения: JPG, PNG, WebP, сжатие с пресетами, изменение размера, "
             "изображения → PDF, фактический формат и размеры.\n"
-            "📄 PDF: JPG, PNG, разделение, объединение, сжатие без потери качества, "
-            "информация о PDF. Сжатие не гарантирует уменьшение каждого файла.\n"
+            "📄 PDF: JPG, PNG, разделение, извлечение первой/первых до 5/последней страницы, "
+            "объединение, сжатие без потери качества, информация о PDF. "
+            "Сжатие не гарантирует уменьшение каждого файла.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
             "🎬 Видео: MP3, без звука, GIF, сжатие с пресетами.\n\n"
             "<b>Несколько файлов</b>\n"
@@ -259,8 +278,9 @@ def help_text(locale: Locale) -> str:
             "<b>What SimpleConv can do</b>\n"
             "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF, "
             "actual format and dimensions.\n"
-            "📄 PDF: JPG, PNG, split, merge, lossless compression, PDF information. "
-            "Compression does not guarantee every file becomes smaller.\n"
+            "📄 PDF: JPG, PNG, split, extract first/first up to 5/last page, merge, "
+            "lossless compression, PDF information. Compression does not guarantee "
+            "every file becomes smaller.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
             "🎬 Video: MP3, mute, GIF, compression presets.\n\n"
             "<b>Multiple files</b>\n"
@@ -487,18 +507,53 @@ def pdf_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                     "ui:pdf:split",
                 ),
                 _button(
-                    _pick(locale, "🧩 Объединить", "🧩 Merge"),
-                    "ui:pdf:merge",
+                    _pick(locale, "✂️ Извлечь", "✂️ Extract"),
+                    "ui:pdf:extract",
                 ),
             ],
             [
                 _button(
+                    _pick(locale, "🧩 Объединить", "🧩 Merge"),
+                    "ui:pdf:merge",
+                ),
+                _button(
                     _pick(locale, "🗜 Сжать PDF", "🗜 Compress PDF"),
                     "ui:pdf:compress",
                 ),
-                _button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info"),
             ],
+            [_button(f"🔍 {_pick(locale, 'Информация', 'Info')}", "ui:pdf:info")],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
+        ]
+    )
+
+
+def pdf_extract_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button(
+                    _pick(locale, "Первая страница", "First page"),
+                    "ui:pdf:extract:first",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Первые до 5 страниц", "First up to 5 pages"),
+                    "ui:pdf:extract:first5",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Последняя страница", "Last page"),
+                    "ui:pdf:extract:last",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "← К PDF", "← PDF actions"),
+                    "ui:pdf:extract:back",
+                )
+            ],
         ]
     )
 

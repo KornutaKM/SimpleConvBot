@@ -40,7 +40,7 @@ Accepted input:
 Initial operations:
 
 - render pages to images
-- extract a bounded page/range selection
+- extract a bounded page selection through restart-safe fixed presets: first page, first up to 5 pages, last page
 - split a PDF
 - inspect page count
 - lossless structural compression using fixed content-stream/object optimization; size reduction is not guaranteed and embedded images are not recompressed at lower quality
@@ -107,8 +107,9 @@ Resize:
 - max 720 px (no upscaling)
 - max 1080 px (no upscaling)
 
-Custom width/height input is deferred until operation parameters can be persisted
-through the job model without weakening idempotency or restart recovery.
+Custom width/height input and arbitrary PDF page/range text input are deferred
+until operation parameters can be persisted through the job model without
+weakening idempotency or restart recovery.
 
 Internal numeric values belong to operation policy/configuration and can evolve without changing the public operation identity.
 
