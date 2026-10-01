@@ -420,9 +420,7 @@ def create_router(
             SessionKind.IMAGES_TO_PDF,
         )
 
-    @router.callback_query(
-        F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp"})
-    )
+    @router.callback_query(F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp"}))
     async def execute_image_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, image_operation(callback.data))
 
