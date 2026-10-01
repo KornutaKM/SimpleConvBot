@@ -53,6 +53,12 @@ _OPERATION_TITLES: dict[str, LocalizedText] = {
     "image.to_png": LocalizedText("Изображение → PNG", "Image → PNG"),
     "image.to_webp": LocalizedText("Изображение → WebP", "Image → WebP"),
     "image.compress": LocalizedText("Сжать изображение", "Compress image"),
+    "image.compress_best": LocalizedText("Сжатие: лучшее качество", "Compress: best quality"),
+    "image.compress_balanced": LocalizedText("Сжатие: баланс", "Compress: balanced"),
+    "image.compress_smallest": LocalizedText(
+        "Сжатие: минимальный размер",
+        "Compress: smallest",
+    ),
     "image.resize_25": LocalizedText("Уменьшить изображение до 25%", "Resize image to 25%"),
     "image.resize_50": LocalizedText("Уменьшить изображение до 50%", "Resize image to 50%"),
     "image.resize_720": LocalizedText("Изображение до 720 px", "Resize image to max 720 px"),

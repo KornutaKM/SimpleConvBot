@@ -54,6 +54,8 @@ from simpleconvbot.ui import (
     home_keyboard,
     image_actions_keyboard,
     image_back_keyboard,
+    image_compress_keyboard,
+    image_compress_text,
     image_document_card,
     image_resize_keyboard,
     image_resize_text,
@@ -321,6 +323,48 @@ def create_router(
             locale,
         )
 
+    @router.callback_query(F.data == "ui:image:compress")
+    async def show_image_compress(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message) or _image_source_card(source, locale) is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            image_compress_text(locale),
+            image_compress_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(F.data == "ui:image:compress:back")
+    async def back_from_image_compress(callback: CallbackQuery) -> None:
+        locale = _callback_locale(callback)
+        message = callback.message
+        source = message.reply_to_message if isinstance(message, Message) else None
+        if not isinstance(source, Message):
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        card = _image_source_card(source, locale)
+        if card is None:
+            await callback.answer(source_unavailable_text(locale), show_alert=True)
+            return
+        await _edit_callback_message(
+            callback,
+            card,
+            image_actions_keyboard(locale),
+            locale,
+        )
+
+    @router.callback_query(
+        F.data.in_(
+            {"ui:image:compress:best", "ui:image:compress:balanced", "ui:image:compress:smallest"}
+        )
+    )
+    async def execute_image_compress(callback: CallbackQuery) -> None:
+        await _execute_callback(callback, execution, image_operation(callback.data))
+
     @router.callback_query(F.data == "ui:image:resize")
     async def show_image_resize(callback: CallbackQuery) -> None:
         locale = _callback_locale(callback)
@@ -376,9 +420,7 @@ def create_router(
             SessionKind.IMAGES_TO_PDF,
         )
 
-    @router.callback_query(
-        F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp", "ui:image:compress"})
-    )
+    @router.callback_query(F.data.in_({"ui:image:jpg", "ui:image:png", "ui:image:webp"}))
     async def execute_image_action(callback: CallbackQuery) -> None:
         await _execute_callback(callback, execution, image_operation(callback.data))
 
