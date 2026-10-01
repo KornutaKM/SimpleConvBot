@@ -155,7 +155,9 @@ def video_operation(callback_data: str | None) -> str | None:
         "ui:video:mp3": "video.to_mp3",
         "ui:video:mute": "video.mute",
         "ui:video:gif": "video.to_gif",
-        "ui:video:compress": "video.compress",
+        "ui:video:compress:best": "video.compress_best",
+        "ui:video:compress:balanced": "video.compress_balanced",
+        "ui:video:compress:smallest": "video.compress_smallest",
     }.get(callback_data)
 
 
@@ -397,6 +399,9 @@ class TelegramMediaExecutor(OperationExecutor):
             "video.to_mp3": "mp3",
             "video.mute": "mp4",
             "video.to_gif": "gif",
+            "video.compress_best": "mp4",
+            "video.compress_balanced": "mp4",
+            "video.compress_smallest": "mp4",
             "video.compress": "mp4",
         }.get(operation_id)
         if suffix is None:
@@ -665,12 +670,18 @@ async def _execute_media(
     if operation_id == "video.to_gif":
         await to_thread(engine.video_to_gif, source, destination)
         return
-    if operation_id == "video.compress":
+    compression = {
+        "video.compress_best": VideoCompressionPreset.HIGH_QUALITY,
+        "video.compress_balanced": VideoCompressionPreset.BALANCED,
+        "video.compress_smallest": VideoCompressionPreset.SMALL,
+        "video.compress": VideoCompressionPreset.BALANCED,
+    }.get(operation_id)
+    if compression is not None:
         await to_thread(
             engine.compress_video,
             source,
             destination,
-            VideoCompressionPreset.BALANCED,
+            compression,
         )
         return
     raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
