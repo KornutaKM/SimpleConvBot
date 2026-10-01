@@ -27,6 +27,8 @@ from simpleconvbot.ui import (
     image_resize_text,
     pdf_actions_keyboard,
     pdf_card,
+    pdf_extract_keyboard,
+    pdf_extract_text,
     pdf_info_text,
     send_file_hint,
     settings_text,
@@ -145,11 +147,26 @@ def test_pdf_action_keyboard_exposes_only_enabled_alpha_operations() -> None:
         "ui:pdf:jpg",
         "ui:pdf:png",
         "ui:pdf:split",
+        "ui:pdf:extract",
         "ui:pdf:merge",
         "ui:pdf:compress",
         "ui:pdf:info",
         TOOLS_CALLBACK,
     }
+    assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
+
+
+def test_pdf_extract_keyboard_exposes_restart_safe_presets_and_back() -> None:
+    callback_data = _callback_data(pdf_extract_keyboard(Locale.EN))
+
+    assert callback_data == {
+        "ui:pdf:extract:first",
+        "ui:pdf:extract:first5",
+        "ui:pdf:extract:last",
+        "ui:pdf:extract:back",
+    }
+    assert "survives queueing and restarts" in pdf_extract_text(Locale.EN)
+    assert "не теряется в очереди" in pdf_extract_text(Locale.RU)
     assert all(len(value.encode("utf-8")) <= 64 for value in callback_data)
 
 
@@ -270,6 +287,8 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "compression presets" in en
     assert "фактический формат и размеры" in ru
     assert "actual format and dimensions" in en
+    assert "первых до 5" in ru
+    assert "first up to 5" in en
     assert "сжатие без потери качества" in ru
     assert "lossless compression" in en
     assert "не гарантирует уменьшение" in ru
