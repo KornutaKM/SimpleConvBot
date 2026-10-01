@@ -178,6 +178,22 @@ def image_resize_text(locale: Locale) -> str:
     )
 
 
+def video_compress_text(locale: Locale) -> str:
+    return _pick(
+        locale,
+        (
+            "🗜 <b>Сжатие видео</b>\n\n"
+            "Выберите пресет: лучшее качество, баланс качества и размера "
+            "или минимальный размер."
+        ),
+        (
+            "🗜 <b>Compress video</b>\n\n"
+            "Choose a preset: best quality, balanced quality/size, "
+            "or smallest output."
+        ),
+    )
+
+
 def help_text(locale: Locale) -> str:
     return _pick(
         locale,
@@ -192,7 +208,7 @@ def help_text(locale: Locale) -> str:
             "изображения → PDF.\n"
             "📄 PDF: JPG, PNG, разделение, объединение, информация о PDF.\n"
             "🎵 Аудио: MP3, M4A, WAV.\n"
-            "🎬 Видео: MP3, без звука, GIF, сжатие.\n\n"
+            "🎬 Видео: MP3, без звука, GIF, сжатие с пресетами.\n\n"
             "<b>Несколько файлов</b>\n"
             "Для «Изображения → PDF» и «Объединить PDF» можно добавить до 20 файлов "
             "общим размером до 40 МБ, затем нажать «Готово». "
@@ -212,7 +228,7 @@ def help_text(locale: Locale) -> str:
             "🖼 Images: JPG, PNG, WebP, compression presets, resize, images → PDF.\n"
             "📄 PDF: JPG, PNG, split, merge, PDF information.\n"
             "🎵 Audio: MP3, M4A, WAV.\n"
-            "🎬 Video: MP3, mute, GIF, compression.\n\n"
+            "🎬 Video: MP3, mute, GIF, compression presets.\n\n"
             "<b>Multiple files</b>\n"
             "For Images → PDF and Merge PDFs, add up to 20 files with a total size "
             "of up to 40 MB, then tap “Done”. "
@@ -467,6 +483,37 @@ def video_actions_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
                 _button(f"🗜 {titles['ui:video:compress']}", "ui:video:compress"),
             ],
             [_button(_pick(locale, "← Назад", "← Back"), TOOLS_CALLBACK)],
+        ]
+    )
+
+
+def video_compress_keyboard(locale: Locale = Locale.RU) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                _button(
+                    _pick(locale, "Лучшее качество", "Best quality"),
+                    "ui:video:compress:best",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Баланс", "Balanced"),
+                    "ui:video:compress:balanced",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "Минимальный размер", "Smallest"),
+                    "ui:video:compress:smallest",
+                )
+            ],
+            [
+                _button(
+                    _pick(locale, "← К видео", "← Video actions"),
+                    "ui:video:compress:back",
+                )
+            ],
         ]
     )
 
