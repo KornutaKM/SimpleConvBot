@@ -31,6 +31,7 @@ from simpleconvbot.telegram_execution import (
     TelegramExecutionGateway,
     TelegramFile,
     TelegramImageExecutor,
+    TelegramMediaExecutor,
     TelegramPdfExecutor,
     UserFacingError,
     _execute_media,
@@ -124,6 +125,42 @@ def test_video_compression_registry_keeps_legacy_and_preset_identities() -> None
         "video.compress_balanced",
         "video.compress_smallest",
     } <= operation_ids
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "preset"),
+    [
+        ("video.compress_best", VideoCompressionPreset.HIGH_QUALITY),
+        ("video.compress_balanced", VideoCompressionPreset.BALANCED),
+        ("video.compress_smallest", VideoCompressionPreset.SMALL),
+        ("video.compress", VideoCompressionPreset.BALANCED),
+    ],
+)
+def test_video_compression_executor_uses_mp4_destination(
+    tmp_path: Path,
+    operation_id: str,
+    preset: VideoCompressionPreset,
+) -> None:
+    async def scenario() -> None:
+        storage = LocalTemporaryStorage(tmp_path / "jobs")
+        job = _job(operation_id)
+        source = await storage.workspace_file(job.job_id, "input")
+        source.write_bytes(b"video-fixture")
+        engine = _RecordingMediaEngine()
+
+        result = await TelegramMediaExecutor(
+            storage,
+            engine=cast(MediaEngine, engine),
+        ).execute(
+            job,
+            OperationDefinition(operation_id, 1, "media"),
+            await storage.ensure_workspace(job.job_id),
+        )
+
+        assert Path(result.output_ref).name == "result.mp4"
+        assert engine.preset is preset
+
+    asyncio.run(scenario())
 
 
 def test_image_executor_uses_workspace_input_and_validates_output(tmp_path: Path) -> None:
