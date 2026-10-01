@@ -199,10 +199,11 @@ def test_user_supplied_filename_is_html_escaped() -> None:
 
 def test_collection_callbacks_fit_telegram_limit_and_bind_session() -> None:
     session_id = uuid4()
-    callbacks = _callback_data(collection_keyboard(session_id))
+    callbacks = _callback_data(collection_keyboard(session_id, Locale.EN, file_count=2))
 
     assert callbacks == {
         f"sess:add:{session_id}",
+        f"sess:remove:{session_id}",
         f"sess:done:{session_id}",
         f"sess:cancel:{session_id}",
     }
@@ -278,3 +279,16 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
 def test_home_keyboard_exposes_localized_help_button() -> None:
     assert "❓ Помощь" in _button_text(home_keyboard(Locale.RU))
     assert "❓ Help" in _button_text(home_keyboard(Locale.EN))
+
+
+def test_collection_remove_button_is_state_and_locale_aware() -> None:
+    session_id = uuid4()
+
+    empty = collection_keyboard(session_id, Locale.EN, file_count=0)
+    populated_ru = collection_keyboard(session_id, Locale.RU, file_count=1)
+    populated_en = collection_keyboard(session_id, Locale.EN, file_count=1)
+
+    assert f"sess:remove:{session_id}" not in _callback_data(empty)
+    assert f"sess:remove:{session_id}" in _callback_data(populated_ru)
+    assert "↩️ Удалить последний" in _button_text(populated_ru)
+    assert "↩️ Remove last" in _button_text(populated_en)
