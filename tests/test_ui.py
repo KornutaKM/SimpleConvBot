@@ -253,7 +253,9 @@ def test_help_surface_is_ru_en_symmetric_and_returns_home() -> None:
     assert "Как пользоваться" in ru
     assert "How to use SimpleConv" in en
     assert "до 20 файлов" in ru
+    assert "удалить последний добавленный файл" in ru
     assert "up to 20 files" in en
+    assert "remove the last added file" in en
     assert "до 40 МБ" in ru
     assert "up to 40 MB" in en
     assert "одного входного файла — до 20 МБ" in ru
