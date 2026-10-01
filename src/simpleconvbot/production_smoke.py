@@ -197,9 +197,7 @@ def _current_git_commit() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Record comprehensive production smoke evidence."
-    )
+    parser = argparse.ArgumentParser(description="Record comprehensive production smoke evidence.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init = subparsers.add_parser("init")
