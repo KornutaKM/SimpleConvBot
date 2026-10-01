@@ -90,15 +90,35 @@ The manifest is bound to the current full Git commit. If the checkout moves to a
 different commit, the CLI refuses to mutate the old review and
 `release_ready` becomes false.
 
-Mark one check only after the matching external evidence has actually been
-observed:
+PASS ownership is fail-closed:
+
+- machine-owned checks (`exact_revision_deployed`, `singleton_polling_confirmed`,
+  `startup_health_confirmed`) can become PASS only through `import-machine`;
+- smoke-owned checks (`production_smoke_completed`,
+  `cleanup_success_failure_verified`, `oversized_transport_verified`,
+  `advertised_operations_observed`) can become PASS only through
+  `production_smoke.py apply-review`;
+- every human-owned PASS requires a bounded non-secret evidence reference.
+
+For a human-owned check, mark PASS only after the matching external evidence has
+actually been observed:
 
 ```bash
 python scripts/production_review.py mark \
   --input .production-review.json \
-  --check startup_health_confirmed \
-  --status pass
+  --check provider_alerts_enabled \
+  --status pass \
+  --evidence-ref railway:alerts:release-001
 ```
+
+Use evidence references as short pointers or labels, for example
+`railway:backup:daily-6d`, `botfather:profile:2026-10-01`, or
+`railway:rollback:deploy-123`. Do not put bot tokens, database URLs, Redis URLs,
+credentials, signed URLs, or secret query strings in the manifest.
+
+`production_review` schema v2 is intentionally strict. A schema v1 review is
+rejected rather than silently upgraded; reinitialize the review on the exact
+deployment before collecting RELEASE-001 evidence.
 
 Show the current state:
 
