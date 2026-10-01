@@ -9,9 +9,12 @@ import pytest
 import simpleconvbot.production_review as production_review
 from simpleconvbot.production_review import (
     CHECK_IDS,
+    HUMAN_ATTESTATION_CHECK_IDS,
     MACHINE_IMPORT_CHECK_IDS,
+    SMOKE_IMPORT_CHECK_IDS,
     import_machine_evidence,
     load_review,
+    mark_owned_review_pass,
     mark_review,
     new_review,
     review_summary,
@@ -53,6 +56,20 @@ def _checks(review: dict[str, object]) -> dict[str, object]:
     return cast(dict[str, object], value)
 
 
+def _complete_review(review: dict[str, object]) -> None:
+    for check_id in MACHINE_IMPORT_CHECK_IDS:
+        mark_owned_review_pass(review, check_id=check_id, owner="machine")
+    for check_id in SMOKE_IMPORT_CHECK_IDS:
+        mark_owned_review_pass(review, check_id=check_id, owner="smoke")
+    for check_id in HUMAN_ATTESTATION_CHECK_IDS:
+        mark_review(
+            review,
+            check_id=check_id,
+            status="pass",
+            evidence_ref=f"manual:{check_id}",
+        )
+
+
 def test_production_review_starts_pending_and_is_commit_bound() -> None:
     review = new_review(
         commit_sha=COMMIT,
@@ -78,8 +95,7 @@ def test_production_review_requires_every_check_and_exact_commit() -> None:
         deployment_id="deploy-123",
         runtime_identity="sha256:abcdef",
     )
-    for check_id in CHECK_IDS:
-        mark_review(review, check_id=check_id, status="pass")
+    _complete_review(review)
 
     complete = review_summary(review, expected_commit=COMMIT)
     assert complete["release_ready"] is True
@@ -98,8 +114,7 @@ def test_fail_or_pending_keeps_release_closed() -> None:
         deployment_id="deploy-123",
         runtime_identity="sha256:abcdef",
     )
-    for check_id in CHECK_IDS:
-        mark_review(review, check_id=check_id, status="pass")
+    _complete_review(review)
     mark_review(review, check_id="provider_alerts_enabled", status="fail")
 
     summary = review_summary(review, expected_commit=COMMIT)
@@ -163,11 +178,148 @@ def test_require_ready_exit_code_is_fail_closed(
 
     assert production_review.main(["show", "--input", str(path), "--require-ready"]) == 2
 
-    for check_id in CHECK_IDS:
-        mark_review(review, check_id=check_id, status="pass")
+    _complete_review(review)
     save_review(path, review)
 
     assert production_review.main(["show", "--input", str(path), "--require-ready"]) == 0
+
+
+@pytest.mark.parametrize(
+    "check_id",
+    [*MACHINE_IMPORT_CHECK_IDS, *SMOKE_IMPORT_CHECK_IDS],
+)
+def test_generic_mark_cannot_bypass_owned_pass_paths(check_id: str) -> None:
+    review = new_review(
+        commit_sha=COMMIT,
+        provider="railway",
+        deployment_id=DEPLOYMENT,
+        runtime_identity="sha256:abcdef",
+    )
+
+    with pytest.raises(ValueError, match="can only pass through"):
+        mark_review(review, check_id=check_id, status="pass", evidence_ref="manual:test")
+
+    assert _checks(review)[check_id] == "pending"
+
+
+def test_human_pass_requires_and_records_bounded_evidence_ref() -> None:
+    review = new_review(
+        commit_sha=COMMIT,
+        provider="railway",
+        deployment_id=DEPLOYMENT,
+        runtime_identity="sha256:abcdef",
+    )
+
+    with pytest.raises(ValueError, match="requires --evidence-ref"):
+        mark_review(review, check_id="provider_alerts_enabled", status="pass")
+
+    mark_review(
+        review,
+        check_id="provider_alerts_enabled",
+        status="pass",
+        evidence_ref="railway:alerts:release-001",
+    )
+    summary = review_summary(review, expected_commit=COMMIT)
+
+    refs = review["evidence_refs"]
+    assert isinstance(refs, dict)
+    assert refs["provider_alerts_enabled"] == "railway:alerts:release-001"
+    assert summary["human_evidence_refs"] == ["provider_alerts_enabled"]
+
+    mark_review(review, check_id="provider_alerts_enabled", status="fail")
+    assert refs["provider_alerts_enabled"] is None
+
+
+@pytest.mark.parametrize(
+    "evidence_ref",
+    [
+        "contains spaces",
+        "https://user:secret@example.invalid/path?token=secret",
+        "",
+        "x" * 257,
+    ],
+)
+def test_human_evidence_ref_is_bounded_and_non_secret_shaped(evidence_ref: str) -> None:
+    review = new_review(
+        commit_sha=COMMIT,
+        provider="railway",
+        deployment_id=DEPLOYMENT,
+        runtime_identity="sha256:abcdef",
+    )
+
+    with pytest.raises(ValueError, match="bounded non-secret reference"):
+        mark_review(
+            review,
+            check_id="backup_policy_confirmed",
+            status="pass",
+            evidence_ref=evidence_ref,
+        )
+
+
+def test_schema_v1_review_is_rejected_explicitly(tmp_path: Path) -> None:
+    path = tmp_path / "production-review-v1.json"
+    review = new_review(
+        commit_sha=COMMIT,
+        provider="railway",
+        deployment_id=DEPLOYMENT,
+        runtime_identity="sha256:abcdef",
+    )
+    review["schema_version"] = 1
+    review.pop("evidence_refs")
+    path.write_text(json.dumps(review), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported production review schema version"):
+        load_review(path)
+
+
+def test_human_pass_cli_requires_evidence_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    review_path = tmp_path / "production-review.json"
+    review = new_review(
+        commit_sha=COMMIT,
+        provider="railway",
+        deployment_id=DEPLOYMENT,
+        runtime_identity="sha256:abcdef",
+    )
+    save_review(review_path, review)
+    monkeypatch.setattr(production_review, "current_git_commit", lambda: COMMIT)
+
+    with pytest.raises(ValueError, match="requires --evidence-ref"):
+        production_review.main(
+            [
+                "mark",
+                "--input",
+                str(review_path),
+                "--check",
+                "provider_alerts_enabled",
+                "--status",
+                "pass",
+            ]
+        )
+
+    assert (
+        production_review.main(
+            [
+                "mark",
+                "--input",
+                str(review_path),
+                "--check",
+                "provider_alerts_enabled",
+                "--status",
+                "pass",
+                "--evidence-ref",
+                "railway:alerts:release-001",
+            ]
+        )
+        == 0
+    )
+
+    updated = load_review(review_path)
+    refs = updated["evidence_refs"]
+    assert isinstance(refs, dict)
+    assert refs["provider_alerts_enabled"] == "railway:alerts:release-001"
 
 
 def test_machine_import_marks_only_machine_owned_checks() -> None:

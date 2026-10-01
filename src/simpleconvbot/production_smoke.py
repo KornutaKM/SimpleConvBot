@@ -13,7 +13,7 @@ from simpleconvbot.media_operations import MEDIA_OPERATIONS
 from simpleconvbot.pdf_operations import PDF_OPERATIONS
 from simpleconvbot.production_review import (
     load_review,
-    mark_review,
+    mark_owned_review_pass,
     review_summary,
     save_review,
 )
@@ -136,7 +136,7 @@ def apply_smoke_to_review(
         if smoke[field] != review[field]:
             raise ValueError("production smoke binding does not match production review")
     for check_id in REVIEW_CHECK_IDS:
-        mark_review(review, check_id=check_id, status="pass")
+        mark_owned_review_pass(review, check_id=check_id, owner="smoke")
 
 
 def _validate_smoke(smoke: dict[str, object]) -> None:
