@@ -105,7 +105,7 @@ After deployment, use the public production bot and verify:
 - one image format conversion;
 - one image compression preset;
 - one image resize preset, including output-dimension verification;
-- one PDF operation;
+- lossless PDF compression on a prepared compressible PDF; verify a valid PDF result, unchanged page count, and smaller output;
 - one audio conversion;
 - one video compression preset with a playable MP4 result;
 - images-to-PDF with at least two images;
