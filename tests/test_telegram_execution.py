@@ -212,11 +212,11 @@ def test_image_info_registry_and_executor_use_actual_content(tmp_path: Path) -> 
         assert result.delivery_text is not None
         assert "PNG" in result.delivery_text.ru
         assert "image/png" in result.delivery_text.ru
-        assert "32×16 px" in result.delivery_text.ru
+        assert "32\u00d716 px" in result.delivery_text.ru
         assert "RGBA" in result.delivery_text.ru
         assert "PNG" in result.delivery_text.en
         assert "image/png" in result.delivery_text.en
-        assert "32×16 px" in result.delivery_text.en
+        assert "32\u00d716 px" in result.delivery_text.en
         assert "input" not in result.delivery_text.ru.lower()
         assert "input" not in result.delivery_text.en.lower()
 
