@@ -247,3 +247,19 @@ It does not approve Railway project/service configuration, secrets, backup
 policy, provider alerts, BotFather, production smoke, cleanup-after-real-user
 flows, oversized transport behavior, rollback, privacy/failure/security review,
 advertised-operation coverage, or final operator review.
+
+For the remaining human-owned production-review gates, record PASS with a short
+non-secret evidence reference:
+
+```bash
+python scripts/production_review.py mark \
+  --input .production-review.json \
+  --check backup_policy_confirmed \
+  --status pass \
+  --evidence-ref railway:backup:daily-6d
+```
+
+The reference is an audit pointer, not machine verification. Never place
+provider credentials, connection URLs, bot tokens, signed URLs, or secret query
+parameters in it. Machine-owned and smoke-owned checks reject generic manual
+PASS and must use their dedicated import/apply paths.
