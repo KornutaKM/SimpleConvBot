@@ -47,6 +47,22 @@ Do not convert an unchecked external item to PASS from CI or documentation.
 - [ ] Perform or explicitly approve a rollback drill using the previous
   known-good image/revision.
 
+## Production smoke manifest
+
+Use `docs/PRODUCTION_SMOKE.md` for the exhaustive production matrix. Initialize
+the local manifest from the exact production review:
+
+```bash
+python scripts/production_smoke.py init \
+  --review .production-review.json \
+  --output .production-smoke.json
+```
+
+Mark each check individually after real observation. There is intentionally no
+bulk `all` command. A complete manifest can be applied back to the production
+review only through `production_smoke.py apply-review`, which is limited to the
+four smoke-related release checks.
+
 ## Final approval
 
 - [ ] No open Security Release Gate violation.

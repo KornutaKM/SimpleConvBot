@@ -95,6 +95,7 @@ Official reference: https://core.telegram.org/bots/api
 - docs/BOT_PROFILE.md — canonical Telegram public profile and safe apply procedure
 - docs/RETENTION.md — file/session/metadata retention contract
 - docs/PRODUCTION.md — public production, monitoring, smoke, and rollback runbook
+- docs/PRODUCTION_SMOKE.md — exact-deployment exhaustive production smoke matrix
 - docs/RAILWAY.md — first-release Railway deployment contract and evidence procedure
 - docs/RELEASE_CHECKLIST.md — RELEASE-001 repository and external gates
 - docs/ROADMAP.md — implementation sequence and release gates

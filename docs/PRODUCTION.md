@@ -98,26 +98,18 @@ alone does not prove that alerts are active.
 
 ## Public smoke test
 
-After deployment, use the public production bot and verify:
+The sampled smoke list has been replaced by the exhaustive, deployment-bound
+matrix in `docs/PRODUCTION_SMOKE.md`.
 
-- `/start`, `/tools`, `/help`, and `/settings`;
-- RU and EN Help/navigation;
-- one image format conversion;
-- one image compression preset;
-- one image resize preset, including output-dimension verification;
-- image Info on an image sent as a document; verify actual decoded format and dimensions rather than filename/MIME;
-- one fixed PDF page extraction preset on a multi-page PDF; verify exact selected page count/order and a valid PDF result;
-- lossless PDF compression on a prepared compressible PDF; verify a valid PDF result, unchanged page count, and smaller output;
-- one audio conversion;
-- one video compression preset with a playable MP4 result;
-- images-to-PDF with at least three images: remove the last one, verify the displayed count/size changes, then finalize and confirm the remaining two preserve order;
-- PDF merge with at least three PDFs: remove the last one, finalize, and confirm the remaining PDFs preserve order;
-- unsupported input error;
-- >20 MiB standard-Bot-API input gives the bounded oversized error;
-- process remains healthy and cleanup/diagnostics continue.
+Initialize `.production-smoke.json` from the exact
+`.production-review.json`, exercise every listed Telegram operation and
+release-behavior check, and mark each observation individually. The manifest
+contains all currently advertised operation identities except explicitly
+documented legacy compatibility aliases. There is no bulk PASS shortcut.
 
-Do not reuse private-alpha evidence as proof that a different production image
-or host is healthy.
+Only a complete smoke manifest may populate the four smoke-related production
+review checks. Do not reuse private-alpha evidence, repository CI, or evidence
+from a different deployment.
 
 ## Rollback
 
