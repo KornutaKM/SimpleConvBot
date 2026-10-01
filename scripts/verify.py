@@ -13,7 +13,7 @@ def run(args: Sequence[str]) -> None:
 
 def main() -> int:
     run(("ruff", "format", "--check", "."))
-    run(("ruff", "check", "--fix", "--diff", "."))
+    run(("ruff", "check", "."))
     run(("mypy", "src", "tests"))
     run(("pytest", "-m", "not integration"))
     return 0

@@ -8,6 +8,8 @@ import pytest
 import simpleconvbot.production_smoke as production_smoke
 from simpleconvbot.production_review import (
     CHECK_IDS as REVIEW_CHECK_IDS,
+)
+from simpleconvbot.production_review import (
     load_review,
     mark_review,
     new_review,
@@ -17,13 +19,15 @@ from simpleconvbot.production_smoke import (
     ADVERTISED_OPERATION_IDS,
     CHECK_IDS,
     NON_ADVERTISED_OPERATION_IDS,
-    REVIEW_CHECK_IDS as SMOKE_REVIEW_CHECK_IDS,
     apply_smoke_to_review,
     load_smoke,
     mark_smoke,
     new_smoke,
     save_smoke,
     smoke_summary,
+)
+from simpleconvbot.production_smoke import (
+    REVIEW_CHECK_IDS as SMOKE_REVIEW_CHECK_IDS,
 )
 
 COMMIT = "a" * 40
@@ -53,7 +57,7 @@ def _complete(smoke: dict[str, object]) -> None:
 
 
 def test_smoke_manifest_covers_every_product_operation_except_legacy_aliases() -> None:
-    assert NON_ADVERTISED_OPERATION_IDS == {"image.compress", "video.compress"}
+    assert {"image.compress", "video.compress"} == NON_ADVERTISED_OPERATION_IDS
     assert len(ADVERTISED_OPERATION_IDS) == 30
     assert len(set(ADVERTISED_OPERATION_IDS)) == 30
     assert "pdf.from_images" in ADVERTISED_OPERATION_IDS
