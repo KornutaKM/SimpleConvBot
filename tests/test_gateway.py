@@ -105,3 +105,13 @@ def test_router_registers_video_compression_callback_handlers() -> None:
     assert "show_video_compress" in callback_names
     assert "back_from_video_compress" in callback_names
     assert "execute_video_compress" in callback_names
+
+
+def test_router_registers_pdf_extraction_callback_handlers() -> None:
+    router = create_router()
+
+    callback_names = {handler.callback.__name__ for handler in router.callback_query.handlers}
+
+    assert "show_pdf_extract" in callback_names
+    assert "back_from_pdf_extract" in callback_names
+    assert "execute_pdf_extract" in callback_names
