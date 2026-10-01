@@ -24,7 +24,6 @@ from simpleconvbot.storage import (
     StorageSecurityError,
 )
 from simpleconvbot.telegram_execution import (
-    _image_transform_request,
     TELEGRAM_CLOUD_DOWNLOAD_MAX_BYTES,
     TelegramDelivery,
     TelegramExecutionGateway,
@@ -33,6 +32,7 @@ from simpleconvbot.telegram_execution import (
     TelegramPdfExecutor,
     UserFacingError,
     audio_operation,
+    _image_transform_request,
     image_operation,
     pdf_operation,
     telegram_download_error_code,
