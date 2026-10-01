@@ -12,6 +12,8 @@ from pypdf import PdfReader, PdfWriter
 from simpleconvbot.image_engine import CompressionPreset, ImageEngine, ImageOutputFormat
 from simpleconvbot.jobs import JobSnapshot, JobState
 from simpleconvbot.localization import UserErrorCode
+from simpleconvbot.media_engine import MediaEngine, VideoCompressionPreset
+from simpleconvbot.media_operations import MEDIA_OPERATIONS
 from simpleconvbot.metrics import MetricsRegistry
 from simpleconvbot.operations import OperationDefinition
 from simpleconvbot.pdf_engine import PdfEngineError, PdfErrorCode
@@ -31,6 +33,7 @@ from simpleconvbot.telegram_execution import (
     TelegramImageExecutor,
     TelegramPdfExecutor,
     UserFacingError,
+    _execute_media,
     _image_transform_request,
     audio_operation,
     image_operation,
@@ -59,8 +62,68 @@ def test_callback_mappings_are_explicit_and_closed() -> None:
     assert audio_operation("ui:audio:mp3") == "audio.to_mp3"
     assert audio_operation("ui:audio:anything") is None
     assert video_operation("ui:video:gif") == "video.to_gif"
+    assert video_operation("ui:video:compress") is None
+    assert video_operation("ui:video:compress:best") == "video.compress_best"
+    assert video_operation("ui:video:compress:balanced") == "video.compress_balanced"
+    assert video_operation("ui:video:compress:smallest") == "video.compress_smallest"
     assert video_operation("ui:video:anything") is None
     assert image_operation(None) is None
+
+
+
+
+
+class _RecordingMediaEngine:
+    def __init__(self) -> None:
+        self.preset: VideoCompressionPreset | None = None
+
+    def compress_video(
+        self,
+        source: Path,
+        destination: Path,
+        preset: VideoCompressionPreset,
+    ) -> None:
+        del source, destination
+        self.preset = preset
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "preset"),
+    [
+        ("video.compress_best", VideoCompressionPreset.HIGH_QUALITY),
+        ("video.compress_balanced", VideoCompressionPreset.BALANCED),
+        ("video.compress_smallest", VideoCompressionPreset.SMALL),
+        ("video.compress", VideoCompressionPreset.BALANCED),
+    ],
+)
+def test_video_compression_operation_selects_exact_preset(
+    tmp_path: Path,
+    operation_id: str,
+    preset: VideoCompressionPreset,
+) -> None:
+    engine = _RecordingMediaEngine()
+
+    asyncio.run(
+        _execute_media(
+            cast(MediaEngine, engine),
+            tmp_path / "input.mp4",
+            tmp_path / "result.mp4",
+            operation_id,
+        )
+    )
+
+    assert engine.preset is preset
+
+
+def test_video_compression_registry_keeps_legacy_and_preset_identities() -> None:
+    operation_ids = {operation.operation_id for operation in MEDIA_OPERATIONS}
+
+    assert {
+        "video.compress",
+        "video.compress_best",
+        "video.compress_balanced",
+        "video.compress_smallest",
+    } <= operation_ids
 
 
 def test_image_executor_uses_workspace_input_and_validates_output(tmp_path: Path) -> None:
