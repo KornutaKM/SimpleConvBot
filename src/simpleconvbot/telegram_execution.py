@@ -373,12 +373,8 @@ class TelegramPdfExecutor(OperationExecutor):
         info = await to_thread(self._engine.inspect, source)
         selection = {
             "pdf.extract_first": PageSelection((PageRange(1, 1),)),
-            "pdf.extract_first_5": PageSelection(
-                (PageRange(1, min(5, info.page_count)),)
-            ),
-            "pdf.extract_last": PageSelection(
-                (PageRange(info.page_count, info.page_count),)
-            ),
+            "pdf.extract_first_5": PageSelection((PageRange(1, min(5, info.page_count)),)),
+            "pdf.extract_last": PageSelection((PageRange(info.page_count, info.page_count),)),
         }.get(operation_id)
         if selection is None:
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
