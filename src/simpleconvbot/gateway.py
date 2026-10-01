@@ -359,11 +359,7 @@ def create_router(
 
     @router.callback_query(
         F.data.in_(
-            {
-                "ui:image:compress:best",
-                "ui:image:compress:balanced",
-                "ui:image:compress:smallest",
-            }
+            {"ui:image:compress:best", "ui:image:compress:balanced", "ui:image:compress:smallest"}
         )
     )
     async def execute_image_compress(callback: CallbackQuery) -> None:
