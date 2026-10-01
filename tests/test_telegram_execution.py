@@ -61,6 +61,10 @@ def test_callback_mappings_are_explicit_and_closed() -> None:
     assert pdf_operation("ui:pdf:jpg") == "pdf.to_jpeg_images"
     assert pdf_operation("ui:pdf:png") == "pdf.to_images"
     assert pdf_operation("ui:pdf:split") == "pdf.extract_pages"
+    assert pdf_operation("ui:pdf:extract") is None
+    assert pdf_operation("ui:pdf:extract:first") == "pdf.extract_first"
+    assert pdf_operation("ui:pdf:extract:first5") == "pdf.extract_first_5"
+    assert pdf_operation("ui:pdf:extract:last") == "pdf.extract_last"
     assert pdf_operation("ui:pdf:compress") == "pdf.compress"
     assert pdf_operation("ui:pdf:info") == "pdf.info"
     assert audio_operation("ui:audio:mp3") == "audio.to_mp3"
@@ -591,6 +595,101 @@ async def _pdf_executor_splits_pdf_into_one_document_per_page(tmp_path: Path) ->
         finally:
             reader.close()
     assert widths == [72.0, 144.0, 216.0]
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "expected_widths"),
+    [
+        ("pdf.extract_first", [72.0]),
+        ("pdf.extract_first_5", [72.0, 144.0, 216.0, 288.0, 360.0]),
+        ("pdf.extract_last", [504.0]),
+    ],
+)
+def test_pdf_executor_extracts_restart_safe_page_presets(
+    tmp_path: Path,
+    operation_id: str,
+    expected_widths: list[float],
+) -> None:
+    asyncio.run(
+        _pdf_executor_extracts_restart_safe_page_presets(
+            tmp_path,
+            operation_id,
+            expected_widths,
+        )
+    )
+
+
+async def _pdf_executor_extracts_restart_safe_page_presets(
+    tmp_path: Path,
+    operation_id: str,
+    expected_widths: list[float],
+) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job(operation_id)
+    source = await storage.workspace_file(job.job_id, "input")
+    writer = PdfWriter()
+    try:
+        for index in range(1, 8):
+            writer.add_blank_page(width=72 * index, height=72)
+        with source.open("wb") as stream:
+            writer.write(stream)
+    finally:
+        writer.close()
+
+    result = await TelegramPdfExecutor(storage).execute(
+        job,
+        OperationDefinition(operation_id, 1, "pdf"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    assert Path(result.output_ref).name == "result.pdf"
+    assert result.additional_output_refs == ()
+    reader = PdfReader(result.output_ref, strict=True)
+    try:
+        widths = [float(page.mediabox.width) for page in reader.pages]
+    finally:
+        reader.close()
+    assert widths == expected_widths
+
+
+@pytest.mark.parametrize(
+    "operation_id",
+    ["pdf.extract_first", "pdf.extract_first_5", "pdf.extract_last"],
+)
+def test_pdf_extraction_presets_accept_one_page_pdf(
+    tmp_path: Path,
+    operation_id: str,
+) -> None:
+    asyncio.run(_pdf_extraction_presets_accept_one_page_pdf(tmp_path, operation_id))
+
+
+async def _pdf_extraction_presets_accept_one_page_pdf(
+    tmp_path: Path,
+    operation_id: str,
+) -> None:
+    storage = LocalTemporaryStorage(tmp_path / "jobs")
+    job = _job(operation_id)
+    source = await storage.workspace_file(job.job_id, "input")
+    writer = PdfWriter()
+    try:
+        writer.add_blank_page(width=123, height=72)
+        with source.open("wb") as stream:
+            writer.write(stream)
+    finally:
+        writer.close()
+
+    result = await TelegramPdfExecutor(storage).execute(
+        job,
+        OperationDefinition(operation_id, 1, "pdf"),
+        await storage.ensure_workspace(job.job_id),
+    )
+
+    reader = PdfReader(result.output_ref, strict=True)
+    try:
+        assert len(reader.pages) == 1
+        assert float(reader.pages[0].mediabox.width) == 123.0
+    finally:
+        reader.close()
 
 
 def test_pdf_executor_rejects_split_fanout_above_telegram_limit(tmp_path: Path) -> None:
