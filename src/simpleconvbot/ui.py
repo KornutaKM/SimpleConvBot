@@ -5,6 +5,7 @@ from uuid import UUID
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from simpleconvbot.image_engine import ImageFormat, ImageInfo
 from simpleconvbot.localization import Locale
 from simpleconvbot.sessions import CollectionSessionSnapshot, SessionKind
 
@@ -190,6 +191,36 @@ def video_compress_text(locale: Locale) -> str:
             "🗜 <b>Compress video</b>\n\n"
             "Choose a preset: best quality, balanced quality/size, "
             "or smallest output."
+        ),
+    )
+
+
+def image_info_text(info: ImageInfo, locale: Locale = Locale.RU) -> str:
+    media_type = {
+        ImageFormat.JPEG: "image/jpeg",
+        ImageFormat.PNG: "image/png",
+        ImageFormat.WEBP: "image/webp",
+        ImageFormat.HEIF: "image/heif",
+    }[info.image_format]
+    format_name = "HEIF/HEIC" if info.image_format is ImageFormat.HEIF else info.image_format.value
+    alpha = _pick(locale, "да", "yes") if info.has_alpha else _pick(locale, "нет", "no")
+    return _pick(
+        locale,
+        (
+            "ℹ️ <b>Информация об изображении</b>\n\n"
+            f"Формат: <b>{format_name}</b> ({media_type})\n"
+            f"Размер: <b>{info.width}×{info.height} px</b>\n"
+            f"Файл: <b>{format_file_size(info.byte_size, locale)}</b>\n"
+            f"Цветовой режим: <b>{escape(info.mode)}</b>\n"
+            f"Прозрачность: <b>{alpha}</b>"
+        ),
+        (
+            "ℹ️ <b>Image information</b>\n\n"
+            f"Format: <b>{format_name}</b> ({media_type})\n"
+            f"Dimensions: <b>{info.width}×{info.height} px</b>\n"
+            f"File size: <b>{format_file_size(info.byte_size, locale)}</b>\n"
+            f"Pixel mode: <b>{escape(info.mode)}</b>\n"
+            f"Alpha: <b>{alpha}</b>"
         ),
     )
 

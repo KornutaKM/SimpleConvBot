@@ -63,6 +63,7 @@ _OPERATION_TITLES: dict[str, LocalizedText] = {
     "image.resize_50": LocalizedText("Уменьшить изображение до 50%", "Resize image to 50%"),
     "image.resize_720": LocalizedText("Изображение до 720 px", "Resize image to max 720 px"),
     "image.resize_1080": LocalizedText("Изображение до 1080 px", "Resize image to max 1080 px"),
+    "image.info": LocalizedText("Информация об изображении", "Image information"),
     "pdf.to_images": LocalizedText("PDF → PNG-изображения", "PDF → PNG images"),
     "pdf.to_jpeg_images": LocalizedText("PDF → JPEG-изображения", "PDF → JPEG images"),
     "pdf.from_images": LocalizedText("Изображения → PDF", "Images → PDF"),
