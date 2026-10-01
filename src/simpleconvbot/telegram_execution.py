@@ -136,6 +136,9 @@ def pdf_operation(callback_data: str | None) -> str | None:
         "ui:pdf:jpg": "pdf.to_jpeg_images",
         "ui:pdf:png": "pdf.to_images",
         "ui:pdf:split": "pdf.extract_pages",
+        "ui:pdf:extract:first": "pdf.extract_first",
+        "ui:pdf:extract:first5": "pdf.extract_first_5",
+        "ui:pdf:extract:last": "pdf.extract_last",
         "ui:pdf:compress": "pdf.compress",
         "ui:pdf:info": "pdf.info",
     }.get(callback_data)
@@ -259,6 +262,12 @@ class TelegramPdfExecutor(OperationExecutor):
                 result = await self._merge_pdfs(job, workspace)
             elif operation.operation_id == "pdf.extract_pages":
                 result = await self._split_pdf(job)
+            elif operation.operation_id in {
+                "pdf.extract_first",
+                "pdf.extract_first_5",
+                "pdf.extract_last",
+            }:
+                result = await self._extract_pdf_preset(job, operation.operation_id)
             elif operation.operation_id == "pdf.compress":
                 result = await self._compress_pdf(job)
             elif operation.operation_id == "pdf.info":
@@ -354,6 +363,34 @@ class TelegramPdfExecutor(OperationExecutor):
         if not refs:
             raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
         return ExecutionResult(output_ref=refs[0], additional_output_refs=tuple(refs[1:]))
+
+    async def _extract_pdf_preset(
+        self,
+        job: JobSnapshot,
+        operation_id: str,
+    ) -> ExecutionResult:
+        source = await self._storage.workspace_file(job.job_id, INPUT_NAME)
+        info = await to_thread(self._engine.inspect, source)
+        selection = {
+            "pdf.extract_first": PageSelection((PageRange(1, 1),)),
+            "pdf.extract_first_5": PageSelection(
+                (PageRange(1, min(5, info.page_count)),)
+            ),
+            "pdf.extract_last": PageSelection(
+                (PageRange(info.page_count, info.page_count),)
+            ),
+        }.get(operation_id)
+        if selection is None:
+            raise UserFacingError(UserErrorCode.INTERNAL_ERROR.value)
+
+        destination = await self._storage.workspace_file(job.job_id, "result.pdf")
+        await to_thread(
+            self._engine.extract_pages,
+            source,
+            destination,
+            selection,
+        )
+        return ExecutionResult(output_ref=str(destination))
 
     async def _images_to_pdf(
         self,
