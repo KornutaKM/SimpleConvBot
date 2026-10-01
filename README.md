@@ -24,7 +24,7 @@ No generative AI is required for the MVP.
 - PDF: images to PDF, PDF to images, merge, split/extract pages, lossless structural compression.
 - Audio: MP3, M4A, WAV conversion.
 - Video: extract audio, create GIF, mute, named compression presets.
-- Multi-file sessions: images to PDF and PDF merge.
+- Multi-file sessions: images to PDF and PDF merge, with add/remove-last/finalize controls.
 
 See docs/MVP.md for the normative matrix.
 

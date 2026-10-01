@@ -15,6 +15,7 @@ from simpleconvbot.postgres import (
 )
 from simpleconvbot.sessions import (
     SessionAccessDenied,
+    SessionEmpty,
     SessionExpired,
     SessionFileInput,
     SessionIdempotencyConflict,
@@ -157,6 +158,17 @@ async def _session_remove_keeps_stable_order_and_monotonic_positions() -> None:
         )
         assert tuple(item.object_ref for item in removed.files) == ("img-A", "img-C")
         assert tuple(item.position for item in removed.files) == (1, 3)
+        assert removed.file_count == 2
+        assert removed.total_bytes == 200
+
+        with pytest.raises(SessionAccessDenied):
+            await repository.remove_file(
+                created.session_id,
+                owner_user_id=999,
+                chat_id=2,
+                file_id=removed.files[-1].file_id,
+                now=now,
+            )
 
         appended, _ = await repository.add_file(
             created.session_id,
@@ -332,5 +344,74 @@ async def _finalized_session_refs_are_deleted_or_reaped() -> None:
                 owner_user_id=11,
                 chat_id=22,
             )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+def test_session_can_remove_final_file_then_accept_new_input() -> None:
+    asyncio.run(_session_can_remove_final_file_then_accept_new_input())
+
+
+async def _session_can_remove_final_file_then_accept_new_input() -> None:
+    engine = make_engine(os.environ["DATABASE_URL"])
+    sessions = make_session_factory(engine)
+    repository = PostgresCollectionSessionRepository(sessions)
+    now = datetime(2026, 9, 28, 16, 0, tzinfo=UTC)
+
+    try:
+        await drop_schema(engine)
+        await create_schema(engine)
+        created = await repository.create(
+            kind=SessionKind.PDF_MERGE,
+            owner_user_id=5,
+            chat_id=6,
+            now=now,
+        )
+        one, _ = await repository.add_file(
+            created.session_id,
+            owner_user_id=5,
+            chat_id=6,
+            item=SessionFileInput(1, "pdf-A", 123),
+            now=now,
+        )
+        emptied = await repository.remove_file(
+            created.session_id,
+            owner_user_id=5,
+            chat_id=6,
+            file_id=one.files[0].file_id,
+            now=now,
+        )
+        assert emptied.state is SessionState.COLLECTING
+        assert emptied.file_count == 0
+        assert emptied.total_bytes == 0
+        assert emptied.files == ()
+
+        with pytest.raises(SessionEmpty):
+            await repository.finalize(
+                created.session_id,
+                owner_user_id=5,
+                chat_id=6,
+                now=now,
+            )
+
+        refilled, added = await repository.add_file(
+            created.session_id,
+            owner_user_id=5,
+            chat_id=6,
+            item=SessionFileInput(2, "pdf-B", 456),
+            now=now,
+        )
+        assert added
+        assert refilled.file_count == 1
+        assert refilled.total_bytes == 456
+
+        plan = await repository.finalize(
+            created.session_id,
+            owner_user_id=5,
+            chat_id=6,
+            now=now,
+        )
+        assert plan.ordered_input_refs == ("pdf-B",)
     finally:
         await engine.dispose()

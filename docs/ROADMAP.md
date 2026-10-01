@@ -102,7 +102,7 @@ Deliverables:
 
 - collection/session model
 - expiry
-- add/remove/finalize flow
+- add/remove-last/finalize flow with deterministic persisted ordering
 - images to PDF
 - PDF merge
 - aggregate limits

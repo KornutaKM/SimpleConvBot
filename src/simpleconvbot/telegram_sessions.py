@@ -31,6 +31,7 @@ from simpleconvbot.sessions import (
     SessionEmpty,
     SessionExpired,
     SessionFileInput,
+    SessionFileNotFound,
     SessionIdempotencyConflict,
     SessionKind,
     SessionLimitExceeded,
@@ -62,12 +63,13 @@ from simpleconvbot.ui import (
     collection_status_text,
     session_add_hint,
     session_cancelled_text,
+    session_removed_text,
     session_unavailable_text,
 )
 
 LOGGER = logging.getLogger(__name__)
 _SESSION_CALLBACK = re.compile(
-    r"^sess:(?P<action>add|done|cancel):"
+    r"^sess:(?P<action>add|remove|done|cancel):"
     r"(?P<session>[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-"
     r"[89ab][0-9a-f]{3}-[0-9a-f]{12})$"
 )
@@ -148,6 +150,7 @@ class TelegramCollectionGateway:
                         reply_markup=collection_keyboard(
                             snapshot.session_id,
                             current_locale,
+                            file_count=snapshot.file_count,
                         ),
                     )
                     return
@@ -199,7 +202,11 @@ class TelegramCollectionGateway:
 
         await message.answer(
             collection_status_text(snapshot, current_locale),
-            reply_markup=collection_keyboard(snapshot.session_id, current_locale),
+            reply_markup=collection_keyboard(
+                snapshot.session_id,
+                current_locale,
+                file_count=snapshot.file_count,
+            ),
             parse_mode=ParseMode.HTML,
         )
 
@@ -292,7 +299,11 @@ class TelegramCollectionGateway:
 
         await message.answer(
             collection_status_text(updated, current_locale),
-            reply_markup=collection_keyboard(updated.session_id, current_locale),
+            reply_markup=collection_keyboard(
+                updated.session_id,
+                current_locale,
+                file_count=updated.file_count,
+            ),
             parse_mode=ParseMode.HTML,
         )
         return True
@@ -335,6 +346,38 @@ class TelegramCollectionGateway:
                     ttl_seconds=ttl,
                 )
                 await callback.answer(session_add_hint(current_locale), show_alert=True)
+                return
+
+            if action == "remove":
+                snapshot = await self._repository.get_owned(
+                    session_id,
+                    owner_user_id=user.id,
+                    chat_id=message.chat.id,
+                )
+                if snapshot.state is not SessionState.COLLECTING:
+                    raise SessionClosed("session is finalized")
+                updated = await self._repository.remove_file(
+                    session_id,
+                    owner_user_id=user.id,
+                    chat_id=message.chat.id,
+                    file_id=_last_session_file_id(snapshot),
+                )
+                await self._focus.set(
+                    user_id=user.id,
+                    chat_id=message.chat.id,
+                    session_id=session_id,
+                    ttl_seconds=_remaining_ttl(updated),
+                )
+                await message.edit_text(
+                    collection_status_text(updated, current_locale),
+                    reply_markup=collection_keyboard(
+                        updated.session_id,
+                        current_locale,
+                        file_count=updated.file_count,
+                    ),
+                    parse_mode=ParseMode.HTML,
+                )
+                await callback.answer(session_removed_text(current_locale))
                 return
 
             if action == "cancel":
@@ -526,6 +569,12 @@ def parse_session_callback(raw: str | None) -> tuple[str, UUID] | None:
     return match.group("action"), UUID(match.group("session"))
 
 
+def _last_session_file_id(snapshot: CollectionSessionSnapshot) -> UUID:
+    if not snapshot.files:
+        raise SessionFileNotFound("collection session has no files")
+    return max(snapshot.files, key=lambda item: item.position).file_id
+
+
 def _message_matches_kind(message: Message, kind: SessionKind) -> bool:
     if kind is SessionKind.IMAGES_TO_PDF:
         if message.photo:
@@ -558,6 +607,7 @@ def _session_error_code(exc: Exception) -> str:
         (SessionClosed, UserErrorCode.SESSION_CLOSED),
         (SessionEmpty, UserErrorCode.SESSION_EMPTY),
         (SessionLimitExceeded, UserErrorCode.SESSION_LIMIT_EXCEEDED),
+        (SessionFileNotFound, UserErrorCode.SESSION_FILE_NOT_FOUND),
         (SessionIdempotencyConflict, UserErrorCode.SESSION_IDEMPOTENCY_CONFLICT),
     )
     for error_type, code in mapping:
