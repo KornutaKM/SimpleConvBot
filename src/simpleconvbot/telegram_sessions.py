@@ -356,14 +356,11 @@ class TelegramCollectionGateway:
                 )
                 if snapshot.state is not SessionState.COLLECTING:
                     raise SessionClosed("session is finalized")
-                if not snapshot.files:
-                    raise SessionFileNotFound("collection session has no files")
-                last_file = max(snapshot.files, key=lambda item: item.position)
                 updated = await self._repository.remove_file(
                     session_id,
                     owner_user_id=user.id,
                     chat_id=message.chat.id,
-                    file_id=last_file.file_id,
+                    file_id=_last_session_file_id(snapshot),
                 )
                 await self._focus.set(
                     user_id=user.id,
@@ -570,6 +567,12 @@ def parse_session_callback(raw: str | None) -> tuple[str, UUID] | None:
     if match is None:
         return None
     return match.group("action"), UUID(match.group("session"))
+
+
+def _last_session_file_id(snapshot: CollectionSessionSnapshot) -> UUID:
+    if not snapshot.files:
+        raise SessionFileNotFound("collection session has no files")
+    return max(snapshot.files, key=lambda item: item.position).file_id
 
 
 def _message_matches_kind(message: Message, kind: SessionKind) -> bool:
