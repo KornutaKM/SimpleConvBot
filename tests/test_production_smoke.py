@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -166,7 +167,7 @@ def test_smoke_round_trip_rejects_unexpected_fields(tmp_path) -> None:
 
 
 def test_apply_review_cli_updates_bound_review(
-    tmp_path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     review_path = tmp_path / "production-review.json"
