@@ -71,9 +71,6 @@ def test_callback_mappings_are_explicit_and_closed() -> None:
     assert image_operation(None) is None
 
 
-
-
-
 class _RecordingMediaEngine:
     def __init__(self) -> None:
         self.preset: VideoCompressionPreset | None = None
